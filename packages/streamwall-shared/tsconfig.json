@@ -1,8 +1,0 @@
-{
-  "extends": [
-    "@tsconfig/recommended/tsconfig",
-    "@tsconfig/node22/tsconfig",
-    "@tsconfig/node-ts/tsconfig"
-  ],
-  "include": ["src"]
-}
