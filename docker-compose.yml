@@ -1,0 +1,97 @@
+version: '3.8'
+
+# Streamwall Ecosystem Docker Compose
+# This file orchestrates all services for local development
+
+services:
+  # PostgreSQL database for StreamSource
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: streamwall
+      POSTGRES_PASSWORD: streamwall_dev
+      POSTGRES_DB: streamsource_development
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streamwall"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and ActionCable
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # StreamSource Rails API (if available)
+  # streamsource:
+  #   build: ./streamsource
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     DATABASE_URL: postgresql://streamwall:streamwall_dev@postgres:5432/streamsource_development
+  #     REDIS_URL: redis://redis:6379/0
+  #     RAILS_ENV: development
+  #   volumes:
+  #     - ./streamsource:/app
+  #   command: bundle exec rails server -b 0.0.0.0
+
+  # Livestream Link Monitor (Discord/Twitch bot)
+  livestream-link-monitor:
+    build: ./livestream-link-monitor
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./livestream-link-monitor/.env
+    volumes:
+      - ./livestream-link-monitor:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Livesheet Checker
+  livesheet-checker:
+    build: ./livesheet-checker
+    volumes:
+      - ./livesheet-checker:/app
+      - ./livesheet-checker/creds.json:/app/creds.json:ro
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+
+  # Streamwall is an Electron app and typically runs on the host
+  # This is a placeholder for documentation
+  # streamwall:
+  #   build: ./streamwall
+  #   # Electron apps need special handling for display
+  #   # Usually run on host with: npm run start:app
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: streamwall-network

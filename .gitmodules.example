@@ -1,0 +1,16 @@
+[submodule "livestream-link-monitor"]
+	path = livestream-link-monitor
+	url = https://github.com/yourusername/livestream-link-monitor.git
+	branch = main
+[submodule "livesheet-checker"]
+	path = livesheet-checker
+	url = https://github.com/yourusername/livesheet-checker.git
+	branch = main
+[submodule "streamsource"]
+	path = streamsource
+	url = https://github.com/yourusername/streamsource.git
+	branch = main
+[submodule "streamwall"]
+	path = streamwall
+	url = https://github.com/yourusername/streamwall.git
+	branch = main

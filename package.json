@@ -1,18 +1,37 @@
 {
-  "name": "streamwall",
+  "name": "streamwall-ecosystem",
+  "version": "1.0.0",
+  "description": "Streamwall ecosystem integration tests and tooling",
+  "private": true,
   "scripts": {
-    "start:app": "npm -w packages/streamwall start",
-    "start:server": "npm -w packages/streamwall-control-client run build && npm -w packages/streamwall-control-server start"
+    "test": "jest",
+    "test:integration": "jest --selectProjects integration",
+    "test:e2e": "jest --selectProjects e2e",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "setup": "make setup && npm install",
+    "dev": "make dev",
+    "start": "make up",
+    "stop": "make down",
+    "logs": "make logs",
+    "status": "make status"
   },
-  "workspaces": [
-    "packages/streamwall",
-    "packages/streamwall-shared",
-    "packages/streamwall-control-client",
-    "packages/streamwall-control-server",
-    "packages/streamwall-control-ui"
-  ],
   "devDependencies": {
-    "prettier": "^3.4.2",
-    "prettier-plugin-organize-imports": "^4.1.0"
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.30",
+    "@types/supertest": "^6.0.2",
+    "axios": "^1.6.8",
+    "googleapis": "^134.0.0",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.4.3",
+    "ws": "^8.16.0"
+  },
+  "jest": {
+    "preset": "./jest.config.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
