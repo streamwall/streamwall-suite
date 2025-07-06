@@ -233,7 +233,7 @@ endif
 .PHONY: test-integration
 test-integration: ## Run integration tests
 	@echo "$(BOLD)$(BLUE)Running integration tests...$(RESET)"
-	@npm test -- tests/integration/
+	@npm run test:integration
 
 .PHONY: test-e2e
 test-e2e: ## Run end-to-end tests

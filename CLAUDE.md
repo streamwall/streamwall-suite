@@ -28,12 +28,13 @@ External Sources → livestream-link-monitor → StreamSource API → Streamwall
 - **Integration**: Dual backend support (Google Sheets + StreamSource API)
 - **Features**: Platform detection, location parsing, rate limiting, deduplication
 
-#### 3. **livesheet-checker/** (Node.js Service)
+#### 3. **livesheet-checker/** (Node.js Service) 
 - **Purpose**: Monitors Google Sheets for stream status and updates
 - **Technology**: Node.js, Google Sheets API
 - **Role**: Bridge between Google Sheets and stream monitoring
 - **Integration**: Updates Google Sheets with live/offline status
 - **Features**: HTTP-based stream checking, rate limiting, batch updates
+- **Note**: Also known as `livesheet-updater` - they are the same service
 
 #### 4. **streamwall/** (Electron Application)
 - **Purpose**: Desktop application for creating livestream mosaics

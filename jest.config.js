@@ -23,6 +23,12 @@ module.exports = {
     '/dist/',
     '/coverage/'
   ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/streamwall/',
+    '<rootDir>/streamsource/',
+    '<rootDir>/livestream-link-monitor/',
+    '<rootDir>/livesheet-checker/'
+  ],
   projects: [
     {
       displayName: 'integration',

@@ -178,7 +178,7 @@ describe('Service Communication', () => {
 
       // Test unauthorized access
       const response = await axios.get(`${services.source.api}/streams`)
-        .catch(e => e.response);
+        .catch(e => ({ status: e.response?.status, data: e.response?.data }));
 
       expect(response.status).toBe(401);
     });

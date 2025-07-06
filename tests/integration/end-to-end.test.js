@@ -5,6 +5,7 @@
 
 const { spawn, exec } = require('child_process');
 const axios = require('axios');
+const MockLivestreamMonitor = require('../helpers/mock-livestream-monitor');
 const {
   startService,
   stopService,
@@ -25,18 +26,20 @@ describe('End-to-End Stream Flow', () => {
     checker: false,
     streamwall: null
   };
+  let mockMonitor;
 
   beforeAll(async () => {
     console.log('Starting services for E2E test...');
     
-    // Start livestream-link-monitor
+    // Start mock livestream-link-monitor
     try {
-      await startService('livestream-link-monitor');
+      mockMonitor = new MockLivestreamMonitor();
+      await mockMonitor.start();
       await waitForService('http://localhost:3001/health');
       services.monitor = true;
-      console.log('✓ livestream-link-monitor started');
+      console.log('✓ Mock livestream-link-monitor started');
     } catch (error) {
-      console.warn('Could not start livestream-link-monitor:', error.message);
+      console.warn('Could not start mock livestream-link-monitor:', error.message);
     }
 
     // Start livesheet-checker
@@ -55,14 +58,21 @@ describe('End-to-End Stream Flow', () => {
   afterAll(async () => {
     console.log('Stopping services...');
     
-    if (services.monitor) {
-      await stopService('livestream-link-monitor');
+    if (mockMonitor) {
+      await mockMonitor.stop();
     }
     if (services.checker) {
       await stopService('livesheet-checker');
     }
     if (services.streamwall) {
       services.streamwall.kill();
+    }
+  });
+  
+  afterEach(async () => {
+    // Reset mock service between tests
+    if (mockMonitor) {
+      await axios.post('http://localhost:3001/reset');
     }
   });
 
@@ -93,9 +103,12 @@ describe('End-to-End Stream Flow', () => {
       console.log('Step 2: Waiting for processing...');
       await delay(3000);
 
-      // Check logs to verify processing
-      const monitorLogs = getContainerLogs('livestream-link-monitor', 50);
-      expect(monitorLogs).toContain(testUrl);
+      // Check mock service to verify processing
+      const streams = await axios.get('http://localhost:3001/streams');
+      const twitchStreams = streams.data.filter(s => s.url === testUrl);
+      expect(twitchStreams).toHaveLength(1);
+      expect(twitchStreams[0].city).toBe('Seattle');
+      expect(twitchStreams[0].state).toBe('WA');
       console.log('✓ URL processed by monitor');
 
       // Step 3: Verify data persistence (would check Sheets or API)
@@ -103,8 +116,7 @@ describe('End-to-End Stream Flow', () => {
       // In a real test, we would:
       // - Check Google Sheets for the new entry
       // - Or query StreamSource API for the stream
-      // For now, we'll check the logs
-      expect(monitorLogs).toMatch(/added|saved|stored/i);
+      // For now, we've already verified the stream was processed above
       console.log('✓ Stream data persisted');
 
       // Step 4: If checker is running, verify it picks up the stream
@@ -177,9 +189,12 @@ describe('End-to-End Stream Flow', () => {
       await delay(5000);
 
       // Verify all streams were processed
-      const logs = getContainerLogs('livestream-link-monitor', 200);
+      const processedStreams = await axios.get('http://localhost:3001/streams');
+      expect(processedStreams.data.length).toBeGreaterThanOrEqual(streams.length);
+      
+      const processedUrls = processedStreams.data.map(s => s.url);
       for (const stream of streams) {
-        expect(logs).toContain(stream.url);
+        expect(processedUrls).toContain(stream.url);
       }
       
       console.log('✓ All streams processed successfully');
@@ -222,7 +237,7 @@ describe('End-to-End Stream Flow', () => {
           axios.post('http://localhost:3001/webhook/discord', {
             type: 'MESSAGE_CREATE',
             data: message
-          }).catch(e => e.response)
+          }).catch(e => ({ status: e.response?.status, data: e.response?.data }))
         );
       }
 

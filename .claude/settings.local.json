@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(jq:*)",
+      "Bash(diff:*)",
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(chmod:*)",
+      "Bash(gh repo create:*)",
+      "Bash(mv:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"=== $dir ===\")",
+      "Bash(if [ -d \"$dir/.git\" ])",
+      "Bash(then echo \"Has .git directory\")",
+      "Bash(git -C \"$dir\" remote -v)",
+      "Bash(else echo \"No .git directory\")",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git submodule add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(make test:*)",
+      "Bash(open:*)",
+      "Bash(docker:*)",
+      "Bash(/dev/null)",
+      "Bash(npm install:*)",
+      "Bash(npm run test:integration:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": []
+  }
+}
