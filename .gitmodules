@@ -1,0 +1,9 @@
+[submodule "livestream-link-monitor"]
+	path = livestream-link-monitor
+	url = git@github.com:streamwall/livestream-link-monitor.git
+[submodule "livesheet-checker"]
+	path = livesheet-checker
+	url = https://github.com/streamwall/livesheet-updater.git
+[submodule "streamwall"]
+	path = streamwall
+	url = https://github.com/streamwall/streamwall.git
