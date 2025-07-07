@@ -48,7 +48,8 @@
       "Bash(gh repo edit:*)",
       "Bash(gh repo view:*)",
       "Bash(gh api:*)",
-      "Bash(gh repo archive:*)"
+      "Bash(gh repo archive:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }

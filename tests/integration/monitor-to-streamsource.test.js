@@ -13,117 +13,6 @@ const {
   delay
 } = require('../helpers/test-data');
 
-// Enhanced mock monitor that can push to StreamSource
-class EnhancedMockMonitor extends MockLivestreamMonitor {
-  constructor(port = 3001, streamSourceUrl = 'http://localhost:3000/api/v1') {
-    super(port);
-    this.streamSourceUrl = streamSourceUrl;
-    this.streamSourceApiKey = 'test-api-key';
-    this.dualWriteMode = true;
-  }
-  
-  setupRoutes() {
-    super.setupRoutes();
-    
-    // Override Discord webhook to also push to StreamSource
-    this.app.post('/webhook/discord', async (req, res) => {
-      const { type, data } = req.body;
-      
-      if (type === 'MESSAGE_CREATE' && data) {
-        const urlRegex = /https?:\/\/(www\.)?(twitch\.tv|youtube\.com|tiktok\.com|kick\.com|facebook\.com)(\/[^\s]*)?/gi;
-        const urls = data.content.match(urlRegex) || [];
-        
-        const results = [];
-        for (let url of urls) {
-          url = url.replace(/[.,!?;:]$/, '');
-          
-          if (!this.processedUrls.has(url)) {
-            this.processedUrls.add(url);
-            
-            const locationMatch = data.content.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),?\s*([A-Z]{2})\b/);
-            const city = locationMatch ? locationMatch[1] : null;
-            const state = locationMatch ? locationMatch[2] : null;
-            
-            const stream = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-              url,
-              platform: this.detectPlatform(url),
-              source: 'Discord',
-              posted_by: data.author?.username || 'test_user',
-              added_date: new Date().toISOString(),
-              city,
-              state,
-              status: 'checking'
-            };
-            
-            this.streams.push(stream);
-            
-            // Push to StreamSource if enabled
-            if (this.dualWriteMode) {
-              try {
-                await this.pushToStreamSource(stream);
-                results.push({ url, success: true, syncedToApi: true });
-              } catch (error) {
-                console.error('Failed to push to StreamSource:', error.message);
-                results.push({ url, success: true, syncedToApi: false, error: error.message });
-              }
-            } else {
-              results.push({ url, success: true });
-            }
-          } else {
-            results.push({ url, success: false, reason: 'duplicate' });
-          }
-        }
-        
-        res.json({ success: true, results });
-      } else {
-        res.status(400).json({ error: 'Invalid webhook data' });
-      }
-    });
-    
-    // Add endpoint to check StreamSource sync status
-    this.app.get('/sync-status', (req, res) => {
-      res.json({
-        dualWriteMode: this.dualWriteMode,
-        streamSourceUrl: this.streamSourceUrl,
-        processedCount: this.streams.length,
-        processedUrls: Array.from(this.processedUrls)
-      });
-    });
-    
-    // Toggle dual-write mode
-    this.app.post('/config/dual-write', (req, res) => {
-      this.dualWriteMode = req.body.enabled !== false;
-      res.json({ dualWriteMode: this.dualWriteMode });
-    });
-  }
-  
-  async pushToStreamSource(stream) {
-    // Simulate API call to StreamSource
-    const response = await axios.post(
-      `${this.streamSourceUrl}/streams`,
-      {
-        url: stream.url,
-        platform: stream.platform,
-        status: stream.status,
-        city: stream.city,
-        state: stream.state,
-        posted_by: stream.posted_by,
-        source: stream.source.toLowerCase(),
-        external_id: stream.id
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${this.streamSourceApiKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    return response.data;
-  }
-}
-
 // Mock StreamSource API (simplified)
 class SimpleMockStreamSource {
   constructor(port = 3000) {
@@ -146,8 +35,11 @@ class SimpleMockStreamSource {
     this.app.post('/api/v1/streams', (req, res) => {
       const authHeader = req.headers['authorization'];
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('StreamSource API: Unauthorized request');
         return res.status(401).json({ error: 'Unauthorized' });
       }
+      
+      console.log('StreamSource API: Received stream creation request:', JSON.stringify(req.body));
       
       const stream = {
         id: this.streams.length + 1,
@@ -156,12 +48,17 @@ class SimpleMockStreamSource {
         updated_at: new Date().toISOString()
       };
       
-      // Check for duplicates
-      const existing = this.streams.find(s => s.url === stream.url);
+      // Check for duplicates by 'link' field (which is what the mock sends)
+      const existing = this.streams.find(s => s.link === stream.link || s.url === stream.link);
       if (existing) {
         // Update existing stream
         Object.assign(existing, req.body, { updated_at: new Date().toISOString() });
         return res.json(existing);
+      }
+      
+      // Normalize the URL field
+      if (stream.link && !stream.url) {
+        stream.url = stream.link;
       }
       
       this.streams.push(stream);
@@ -216,12 +113,20 @@ describe('Livestream Monitor to StreamSource Integration', () => {
   const apiUrl = 'http://localhost:3000/api/v1';
   const authToken = 'test-api-key';
   
+  // Remove the EnhancedMockMonitor class since we'll use the updated base mock
+  
   beforeAll(async () => {
     mockStreamSource = new SimpleMockStreamSource();
     await mockStreamSource.start();
     
-    mockMonitor = new EnhancedMockMonitor();
+    mockMonitor = new MockLivestreamMonitor(3001, {
+      dualWriteMode: true,
+      streamSourceUrl: 'http://localhost:3000/api/v1'
+    });
     await mockMonitor.start();
+    
+    // Set the auth token
+    await axios.post(`${monitorUrl}/auth/streamsource`, { token: authToken });
   });
   
   afterAll(async () => {
@@ -238,6 +143,10 @@ describe('Livestream Monitor to StreamSource Integration', () => {
     test('should push streams to both local storage and StreamSource API', async () => {
       // Ensure dual-write mode is enabled
       await axios.post(`${monitorUrl}/config/dual-write`, { enabled: true });
+      
+      // Verify auth token is set
+      const syncStatus = await axios.get(`${monitorUrl}/sync-status`);
+      console.log('Sync status before test:', syncStatus.data);
       
       // Send Discord message with stream
       const testUrl = TEST_URLS.twitch[0];
@@ -292,6 +201,9 @@ describe('Livestream Monitor to StreamSource Integration', () => {
       // Restart StreamSource for other tests
       mockStreamSource = new SimpleMockStreamSource();
       await mockStreamSource.start();
+      
+      // Re-enable dual-write mode
+      await axios.post(`${monitorUrl}/config/dual-write`, { enabled: true });
     });
     
     test('should disable dual-write mode when configured', async () => {

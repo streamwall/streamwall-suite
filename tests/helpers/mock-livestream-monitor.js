@@ -2,12 +2,18 @@
 const express = require('express');
 
 class MockLivestreamMonitor {
-  constructor(port = 3001) {
+  constructor(port = 3001, options = {}) {
     this.port = port;
     this.app = express();
     this.server = null;
     this.streams = [];
     this.processedUrls = new Set();
+    
+    // StreamSource integration options
+    this.dualWriteMode = options.dualWriteMode !== false;
+    this.streamSourceUrl = options.streamSourceUrl || 'http://localhost:3000/api/v1';
+    this.streamSourceToken = null;
+    this.syncedStreams = new Set();
     
     this.setupRoutes();
   }
@@ -27,7 +33,7 @@ class MockLivestreamMonitor {
     });
     
     // Discord webhook endpoint for testing
-    this.app.post('/webhook/discord', (req, res) => {
+    this.app.post('/webhook/discord', async (req, res) => {
       const { type, data } = req.body;
       
       if (type === 'MESSAGE_CREATE' && data) {
@@ -61,7 +67,41 @@ class MockLivestreamMonitor {
             };
             
             this.streams.push(stream);
-            results.push({ url, success: true });
+            
+            // Sync to StreamSource if enabled
+            let syncedToApi = false;
+            if (this.dualWriteMode && this.streamSourceToken) {
+              try {
+                const response = await fetch(`${this.streamSourceUrl}/streams`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.streamSourceToken}`
+                  },
+                  body: JSON.stringify({
+                    source: stream.posted_by,
+                    link: stream.url,
+                    platform: stream.platform,
+                    city: stream.city,
+                    state: stream.state,
+                    status: 'offline'
+                  })
+                });
+                
+                if (response.ok) {
+                  syncedToApi = true;
+                  this.syncedStreams.add(url);
+                }
+              } catch (error) {
+                // Sync failed, continue with local storage
+              }
+            }
+            
+            const result = { url, success: true };
+            if (this.dualWriteMode) {
+              result.syncedToApi = syncedToApi;
+            }
+            results.push(result);
           } else {
             results.push({ url, success: false, reason: 'duplicate' });
           }
@@ -82,7 +122,33 @@ class MockLivestreamMonitor {
     this.app.post('/reset', (req, res) => {
       this.streams = [];
       this.processedUrls.clear();
+      this.syncedStreams.clear();
       res.json({ success: true });
+    });
+    
+    // Set StreamSource token
+    this.app.post('/auth/streamsource', (req, res) => {
+      this.streamSourceToken = req.body.token;
+      res.json({ success: true });
+    });
+    
+    // Set dual-write mode
+    this.app.post('/config/dual-write', (req, res) => {
+      this.dualWriteMode = req.body.enabled;
+      res.json({ success: true, dualWriteMode: this.dualWriteMode });
+    });
+    
+    // Get sync status
+    this.app.get('/sync-status', (req, res) => {
+      res.json({
+        dualWriteMode: this.dualWriteMode,
+        streamSourceUrl: this.streamSourceUrl,
+        hasToken: !!this.streamSourceToken,
+        processedCount: this.processedUrls.size,
+        syncedCount: this.syncedStreams.size,
+        processedUrls: Array.from(this.processedUrls),
+        syncedUrls: Array.from(this.syncedStreams)
+      });
     });
   }
   
