@@ -32,21 +32,24 @@ class MockLivestreamMonitor {
       
       if (type === 'MESSAGE_CREATE' && data) {
         // Extract URLs from message content - more comprehensive regex
-        const urlRegex = /https?:\/\/(www\.)?(twitch\.tv|youtube\.com|tiktok\.com|kick\.com|facebook\.com)\/[^\s]+/gi;
+        const urlRegex = /https?:\/\/(www\.)?(twitch\.tv|youtube\.com|tiktok\.com|kick\.com|facebook\.com)(\/[^\s]*)?/gi;
         const urls = data.content.match(urlRegex) || [];
         
         const results = [];
-        for (const url of urls) {
+        for (let url of urls) {
+          // Ensure URL ends properly (remove trailing punctuation)
+          url = url.replace(/[.,!?;:]$/, '');
+          
           if (!this.processedUrls.has(url)) {
             this.processedUrls.add(url);
             
-            // Extract location from message
+            // Extract location from message - improved regex
             const locationMatch = data.content.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),?\s*([A-Z]{2})\b/);
             const city = locationMatch ? locationMatch[1] : null;
             const state = locationMatch ? locationMatch[2] : null;
             
             const stream = {
-              id: Date.now().toString(),
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
               url,
               platform: this.detectPlatform(url),
               source: 'Discord',

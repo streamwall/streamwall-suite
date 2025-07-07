@@ -1,97 +1,136 @@
-version: '3.8'
-
 # Streamwall Ecosystem Docker Compose
-# This file orchestrates all services for local development
+# This file orchestrates all services in the Streamwall ecosystem
 
 services:
-  # PostgreSQL database for StreamSource
+  # PostgreSQL Database (for StreamSource)
   postgres:
     image: postgres:17-alpine
+    container_name: streamwall-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: streamwall
-      POSTGRES_PASSWORD: streamwall_dev
-      POSTGRES_DB: streamsource_development
-    ports:
-      - "5432:5432"
+      - POSTGRES_USER=${POSTGRES_USER:-streamsource}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-streamsource_password}
+      - POSTGRES_DB=${POSTGRES_DB:-streamsource_development}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U streamwall"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streamsource} -d ${POSTGRES_DB:-streamsource_development}"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # Redis for caching and ActionCable
+  # Redis (for StreamSource ActionCable and caching)
   redis:
     image: redis:7-alpine
+    container_name: streamwall-redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
 
-  # StreamSource Rails API (if available)
-  # streamsource:
-  #   build: ./streamsource
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     DATABASE_URL: postgresql://streamwall:streamwall_dev@postgres:5432/streamsource_development
-  #     REDIS_URL: redis://redis:6379/0
-  #     RAILS_ENV: development
-  #   volumes:
-  #     - ./streamsource:/app
-  #   command: bundle exec rails server -b 0.0.0.0
-
-  # Livestream Link Monitor (Discord/Twitch bot)
-  livestream-link-monitor:
-    build: ./livestream-link-monitor
+  # StreamSource API (Rails backend)
+  streamsource:
+    build: ./streamsource
+    container_name: streamsource-api
+    restart: unless-stopped
+    ports:
+      - "${STREAMSOURCE_PORT:-3000}:3000"
+    environment:
+      - RAILS_ENV=${RAILS_ENV:-development}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-streamsource}:${POSTGRES_PASSWORD:-streamsource_password}@postgres:5432/${POSTGRES_DB:-streamsource_development}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-your_secret_key_base_here}
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
+      - BUNDLE_WITHOUT=""
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "3001:3001"
-    env_file:
-      - ./livestream-link-monitor/.env
     volumes:
-      - ./livestream-link-monitor:/app
-    restart: unless-stopped
+      - ./streamsource:/rails:cached
+      - streamsource_bundle:/usr/local/bundle
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
 
-  # Livesheet Checker
+  # Livestream Link Monitor - Discord/Twitch bot
+  livestream-monitor:
+    build: ./livestream-link-monitor
+    container_name: livestream-monitor
+    restart: unless-stopped
+    depends_on:
+      - streamsource
+    volumes:
+      - ./livestream-link-monitor/credentials.json:/app/credentials.json:ro
+      - ./livestream-link-monitor/logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - TZ=America/Los_Angeles
+      - PORT=3001
+      # Discord/Twitch configuration
+      - DISCORD_TOKEN=${DISCORD_TOKEN:-your_discord_bot_token_here}
+      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID:-your_discord_channel_id_here}
+      - TWITCH_CHANNEL=${TWITCH_CHANNEL:-channel_name_without_hash}
+      # Google Sheets configuration
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-your_google_sheet_id_here}
+      - GOOGLE_CREDENTIALS_PATH=/app/credentials.json
+      # StreamSource API integration
+      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-your_api_key_here}
+    ports:
+      - "3001:3001"  # Health check endpoint
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Livesheet Checker - Stream status checker
   livesheet-checker:
     build: ./livesheet-checker
-    volumes:
-      - ./livesheet-checker:/app
-      - ./livesheet-checker/creds.json:/app/creds.json:ro
+    container_name: livesheet-checker
     restart: unless-stopped
+    volumes:
+      - ./livesheet-checker/creds.json:/app/creds.json:ro
     environment:
-      NODE_ENV: development
+      - NODE_ENV=production
+      - TZ=America/Los_Angeles
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Streamwall is an Electron app and typically runs on the host
-  # This is a placeholder for documentation
-  # streamwall:
-  #   build: ./streamwall
-  #   # Electron apps need special handling for display
-  #   # Usually run on host with: npm run start:app
-
-volumes:
-  postgres_data:
-  redis_data:
-
+# Networks
 networks:
   default:
     name: streamwall-network
+    driver: bridge
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  streamsource_bundle:
+    driver: local

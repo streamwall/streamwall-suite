@@ -7,3 +7,6 @@
 [submodule "streamwall"]
 	path = streamwall
 	url = https://github.com/streamwall/streamwall.git
+[submodule "streamsource"]
+	path = streamsource
+	url = https://github.com/streamwall/streamsource.git

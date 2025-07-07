@@ -1,316 +1,324 @@
-# Streamwall Project
+# Streamwall Ecosystem
 
-This repository serves as the integration point for all Streamwall-related services and applications. It orchestrates the entire ecosystem for livestream discovery, monitoring, and display.
+A comprehensive livestream management platform that monitors, aggregates, and displays streams from multiple platforms in real-time.
 
-## Architecture Overview
+## 🎯 Overview
+
+The Streamwall ecosystem is a collection of microservices that work together to:
+- **Discover** livestreams from Discord channels and Twitch chat
+- **Store** stream metadata in a centralized API backend
+- **Monitor** stream status in real-time
+- **Display** multiple streams in a customizable mosaic layout
+
+## 📂 Repository Structure
+
+This is a **meta-repository** that orchestrates multiple services using Git submodules:
 
 ```
-streamwall-project/
-├── livestream-link-monitor/     # Discord/Twitch bot for stream discovery
-├── livesheet-checker/          # Google Sheets status updater
-├── streamsource/              # Rails API backend (central data store)
-├── streamwall/                # Electron desktop application
-├── Makefile                   # Orchestration commands
-├── tests/                     # Integration tests
-└── docs/                      # Shared documentation
+streamwall/                    # This repository (orchestration layer)
+├── streamsource/             # Git submodule: Rails API backend
+├── livestream-link-monitor/  # Git submodule: Discord/Twitch bot
+├── livesheet-checker/        # Git submodule: Stream status checker
+├── streamwall/               # Git submodule: Electron desktop app
+├── docker-compose.yml        # Unified service orchestration
+├── Makefile                  # Common commands
+├── tests/integration/        # Cross-service integration tests
+└── docs/                     # Ecosystem documentation
 ```
 
-## Repository Structure Options
+Each service is maintained in its own repository and included here as a submodule for easy orchestration.
 
-### Option 1: Meta-Repository with Submodules (Recommended)
+## 🏗️ Architecture
 
-This approach keeps each service in its own repository while this repo orchestrates them:
-
-```bash
-# Initial setup
-git clone https://github.com/sayhiben/streamwall-project.git
-cd streamwall-project
-cp .gitmodules.example .gitmodules
-# Edit .gitmodules with your repository URLs
-./setup-submodules.sh
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         External Sources                              │
+│  (Discord Channels, Twitch Chat, Manual Entry)                       │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────────┐
+│                    livestream-link-monitor                           │
+│  • Monitors Discord/Twitch for stream URLs                           │
+│  • Detects platform and extracts metadata                            │
+│  • Dual-write to Google Sheets & StreamSource API                    │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │
+         ┌─────────────┴─────────────┐
+         │                           │
+┌────────▼────────┐       ┌─────────▼────────┐
+│  Google Sheets  │       │  StreamSource    │
+│  (Legacy/Backup) │       │  (Rails 8 API)   │
+└────────┬────────┘       └─────────┬────────┘
+         │                           │
+         │      ┌────────────┐       │
+         └─────►│ livesheet- │◄──────┘
+                │  checker    │
+                │             │
+                └─────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────────┐
+│                         Streamwall                                   │
+│  • Electron desktop application                                      │
+│  • Displays multiple streams in mosaic layout                        │
+│  • Audio control and hotkey support                                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Pros:**
-- Clean separation of concerns
-- Each service can be developed independently
-- Easy to version each service separately
-- Can mix public and private repos
+## 📦 Services
 
-**Cons:**
-- Submodules can be tricky for newcomers
-- Need to manage multiple repositories
+### Core Services
 
-### Option 2: Monorepo
+#### 1. **StreamSource** (Rails 8 API)
+- Central data store for all stream metadata
+- RESTful API with JWT authentication
+- Real-time updates via ActionCable WebSocket
+- Admin interface for stream management
+- Feature flags for gradual rollouts
 
-Keep everything in a single repository:
+#### 2. **livestream-link-monitor** (Node.js)
+- Discord bot that monitors channels for stream URLs
+- Twitch chat integration for stream discovery
+- Automatic platform detection (Twitch, YouTube, TikTok, Kick, Facebook)
+- Location parsing from messages
+- Dual-write capability to both Google Sheets and StreamSource API
 
-```bash
-streamwall-monorepo/
-├── services/
-│   ├── livestream-link-monitor/
-│   ├── livesheet-checker/
-│   ├── streamsource/
-│   └── streamwall/
-├── shared/
-│   ├── configs/
-│   └── types/
-└── integration/
-    ├── tests/
-    └── docker-compose.yml
-```
+#### 3. **livesheet-checker** (Node.js)
+- Monitors stream status (live/offline)
+- Updates Google Sheets with current status
+- Syncs data between Google Sheets and StreamSource API
+- Configurable check intervals
 
-**Pros:**
-- Simpler to manage
-- Atomic commits across services
-- Easier CI/CD
+#### 4. **Streamwall** (Electron)
+- Desktop application for viewing multiple streams
+- Customizable grid layouts
+- Per-stream audio controls
+- Keyboard shortcuts for quick navigation
+- Web-based remote control interface
 
-**Cons:**
-- Larger repository
-- Can't easily mix access permissions
+### Infrastructure Services
 
-### Option 3: Integration Repository Only
+- **PostgreSQL 17** - Primary database for StreamSource
+- **Redis 7** - Caching and ActionCable support
+- **Nginx** - Reverse proxy (production)
 
-Keep this as a thin orchestration layer:
-
-```bash
-streamwall-integration/
-├── Makefile
-├── docker-compose.yml
-├── tests/
-├── scripts/
-└── docs/
-```
-
-Services are expected to be cloned as siblings:
-```
-parent-directory/
-├── streamwall-integration/
-├── livestream-link-monitor/
-├── livesheet-checker/
-├── streamsource/
-└── streamwall/
-```
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-
 - Docker & Docker Compose
 - Node.js 18+
 - Git
 - Make
 
-### Quick Start
+### Setup
 
-```bash
-# Clone this repository
-git clone https://github.com/sayhiben/streamwall-project.git
-cd streamwall-project
-
-# Setup (choose based on your structure)
-make setup
-
-# Start all services
-make dev
-
-# Check status
-make status
-
-# View logs
-make logs
-```
-
-### Development Workflow
-
-1. **Feature Development**
+1. **Clone the repository with submodules**
    ```bash
-   # Work on individual service
-   cd livestream-link-monitor
-   git checkout -b feature/new-platform-support
-   # Make changes
-   git commit -m "Add support for new platform"
-   git push origin feature/new-platform-support
+   git clone --recursive https://github.com/sayhiben/streamwall.git
+   cd streamwall
+   ```
+   
+   Or if you already cloned without submodules:
+   ```bash
+   git submodule update --init --recursive
    ```
 
-2. **Integration Testing**
+2. **Configure environment**
    ```bash
-   # From ecosystem root
-   make test-integration
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
 
-3. **Update Ecosystem**
+3. **Add service credentials**
    ```bash
-   # Update submodules to latest
-   git submodule update --remote --merge
-   git commit -m "Update services to latest versions"
+   # Google service account for livestream-link-monitor
+   cp livestream-link-monitor/credentials.example.json livestream-link-monitor/credentials.json
+   
+   # Google service account for livesheet-checker
+   cp livesheet-checker/creds.example.json livesheet-checker/creds.json
    ```
 
-## CI/CD Integration
+4. **Start all services**
+   ```bash
+   make up
+   # or
+   docker-compose up -d
+   ```
 
-### GitHub Actions Example
+5. **Check service health**
+   ```bash
+   make status
+   ```
 
-```yaml
-name: Integration Tests
+## 🔧 Development
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  schedule:
-    - cron: '0 0 * * *'  # Daily
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
-    
-    - name: Setup
-      run: make setup
-    
-    - name: Run Integration Tests
-      run: make test-integration
-    
-    - name: E2E Tests
-      run: make test-e2e
-```
-
-## Environment Configuration
-
-### Development
-
-Create `.env` files for each service:
+### Running Services Individually
 
 ```bash
-# Copy example configs
-cp livestream-link-monitor/.env.example livestream-link-monitor/.env
-cp streamsource/.env.example streamsource/.env
+# Start StreamSource API
+cd streamsource
+docker-compose up
 
-# Edit with your values
-```
-
-### Production
-
-Use secrets management:
-- GitHub Secrets for GitHub Actions
-- Docker Swarm secrets
-- Kubernetes secrets
-- AWS Secrets Manager
-
-## Contributing
-
-### Working with Submodules
-
-```bash
-# Clone with submodules
-git clone --recursive https://github.com/yourusername/streamwall-ecosystem.git
-
-# Update submodules
-git submodule update --remote --merge
-
-# Make changes in a submodule
+# Start livestream monitor
 cd livestream-link-monitor
-git checkout -b my-feature
-# ... make changes ...
-git commit -m "My changes"
-git push origin my-feature
+npm install
+npm run dev
 
-# Update ecosystem to use new commit
-cd ..
-git add livestream-link-monitor
-git commit -m "Update livestream-link-monitor to include my-feature"
+# Start livesheet checker
+cd livesheet-checker
+docker-compose up
+
+# Start Streamwall desktop app
+cd streamwall
+npm install
+npm run start:app
 ```
 
-### Testing Changes
+### Running Tests
 
 ```bash
-# Test individual service
-make test-monitor
-
-# Test integration
+# Run all integration tests
 make test-integration
 
-# Full test suite
-make test
+# Run specific service tests
+cd streamsource && bundle exec rspec
+cd livestream-link-monitor && npm test
+cd streamwall && npm test
 ```
 
-## Deployment
+### API Documentation
 
-### Docker Swarm
+- StreamSource API: http://localhost:3000/api-docs (when running)
+- See [API_INTERFACES.md](docs/API_INTERFACES.md) for detailed endpoint documentation
 
-```bash
-# Deploy stack
-docker stack deploy -c docker-compose.production.yml streamwall
+## 📊 Integration Tests
 
-# Update service
-docker service update streamwall_livestream-link-monitor
-```
+The ecosystem includes comprehensive integration tests that verify:
+- Service communication patterns
+- Data consistency across services
+- Real-time update propagation
+- Error handling and recovery
+- Performance under load
 
-### Kubernetes
+See [tests/integration/README.md](tests/integration/README.md) for details.
 
-```bash
-# Apply manifests
-kubectl apply -f k8s/
+## 🔐 Security
 
-# Update deployment
-kubectl set image deployment/livestream-link-monitor \
-  livestream-link-monitor=myregistry/livestream-link-monitor:v2.0
-```
+- JWT authentication for API access
+- Environment-based configuration
+- HTTPS enforced in production
+- Rate limiting on all endpoints
+- Input validation and sanitization
 
-## Versioning Strategy
-
-### Semantic Versioning
-
-- Each service maintains its own version
-- Ecosystem version tracks compatibility
-
-### Version Matrix
-
-| Ecosystem | Monitor | Checker | Source | Streamwall |
-|-----------|---------|---------|--------|------------|
-| 1.0.0     | 1.2.3   | 1.0.1   | 2.1.0  | 0.9.5      |
-| 1.1.0     | 1.3.0   | 1.0.1   | 2.2.0  | 1.0.0      |
-
-## Monitoring
+## 📈 Monitoring
 
 ### Health Checks
+- `/health` endpoints on all services
+- Docker health checks
+- Automated restart on failure
 
-```bash
-# Check all services
-make health
-
-# Individual service
-curl http://localhost:3001/health
-```
+### Logging
+- Centralized JSON logging format
+- Log aggregation ready
+- Debug mode for development
 
 ### Metrics
+- Response time tracking
+- Stream discovery rates
+- API usage statistics
 
-- Prometheus endpoints
-- Application logs
-- Performance metrics
+## 🚢 Deployment
 
-## Troubleshooting
-
+### Docker Compose (Development/Small Scale)
 ```bash
-# Diagnostic tool
-make doctor
-
-# Check configurations
-make env-check
-
-# View specific service logs
-make logs-monitor
-make logs-checker
+docker-compose -f docker-compose.production.yml up -d
 ```
 
-## License
+### Kubernetes (Large Scale)
+See [k8s/README.md](k8s/README.md) for Kubernetes deployment guides.
 
-Each service may have its own license. See individual repositories for details.
+### Cloud Providers
+- DigitalOcean: See [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md)
+- AWS/GCP/Azure: Coming soon
 
-## Contact
+## 📝 Configuration
 
-- Issues: [GitHub Issues](https://github.com/yourusername/streamwall-project/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/streamwall-project/discussions)
+### Environment Variables
+See [.env.example](.env.example) for all available configuration options.
+
+Key configurations:
+- `RAILS_ENV` - Rails environment (development/production)
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `DISCORD_TOKEN` - Discord bot token
+- `GOOGLE_SHEET_ID` - Google Sheets ID for stream data
+
+### Feature Flags
+StreamSource includes feature flags for gradual rollouts:
+- `analytics` - Advanced analytics features
+- `bulk_import` - Bulk stream import
+- `webhooks` - Webhook notifications
+- `real_time_notifications` - WebSocket updates
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+## 📚 Documentation
+
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Interfaces](docs/API_INTERFACES.md)
+- [Service Communication](docs/SERVICE_COMMUNICATION.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+### Service-Specific Documentation
+- [StreamSource README](streamsource/README.md)
+- [Livestream Monitor README](livestream-link-monitor/README.md)
+- [Livesheet Checker README](livesheet-checker/README.md)
+- [Streamwall README](streamwall/README.md)
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Services not starting**
+   ```bash
+   make doctor  # Run diagnostics
+   make logs    # Check service logs
+   ```
+
+2. **Database connection errors**
+   ```bash
+   docker-compose exec postgres psql -U streamsource
+   # Check database connectivity
+   ```
+
+3. **API authentication failures**
+   - Verify JWT token is valid
+   - Check token expiration
+   - Ensure correct API key in .env
+
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
+
+## 📄 License
+
+This project is licensed under the MIT License - see individual service directories for specific licenses.
+
+## 🙏 Acknowledgments
+
+- Discord.js for Discord integration
+- TMI.js for Twitch chat integration
+- Ruby on Rails team for the excellent framework
+- Electron team for cross-platform desktop support
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/sayhiben/streamwall/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sayhiben/streamwall/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/sayhiben/streamwall/wiki)

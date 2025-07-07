@@ -48,6 +48,8 @@ help: ## Display this help
 .PHONY: setup
 setup: ## Initial setup for all services
 	@echo "$(BOLD)$(BLUE)Setting up Streamwall ecosystem...$(RESET)"
+	@echo "$(YELLOW)Initializing git submodules...$(RESET)"
+	@git submodule update --init --recursive
 ifdef HAS_MONITOR
 	@echo "$(YELLOW)Setting up livestream-link-monitor...$(RESET)"
 	@cd $(MONITOR_DIR) && make setup
@@ -123,8 +125,20 @@ endif
 ##@ Production
 
 .PHONY: up u
-up u: ## Start all services in production mode
+up u: ## Start all services in production mode using top-level docker-compose
 	@echo "$(BOLD)$(GREEN)Starting all services in production mode...$(RESET)"
+	@if [ ! -f .env ]; then \
+		echo "$(YELLOW)Creating .env file from .env.example...$(RESET)"; \
+		cp .env.example .env; \
+		echo "$(YELLOW)Please edit .env file with your configuration!$(RESET)"; \
+	fi
+	@docker-compose up -d
+	@echo "$(GREEN)✓ All services started!$(RESET)"
+	@echo "$(DIM)Run 'make logs' to view service logs$(RESET)"
+
+.PHONY: up-legacy
+up-legacy: ## Start all services using individual docker-compose files (legacy)
+	@echo "$(BOLD)$(GREEN)Starting all services in production mode (legacy)...$(RESET)"
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose up -d
 endif
@@ -140,8 +154,14 @@ endif
 	@echo "$(GREEN)✓ All services started!$(RESET)"
 
 .PHONY: down
-down: ## Stop all services
+down: ## Stop all services using top-level docker-compose
 	@echo "$(BOLD)$(RED)Stopping all services...$(RESET)"
+	@docker-compose down
+	@echo "$(GREEN)✓ All services stopped!$(RESET)"
+
+.PHONY: down-legacy
+down-legacy: ## Stop all services using individual docker-compose files (legacy)
+	@echo "$(BOLD)$(RED)Stopping all services (legacy)...$(RESET)"
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose down
 endif
@@ -159,8 +179,13 @@ restart r: down up ## Restart all services
 ##@ Monitoring
 
 .PHONY: status s
-status s: ## Show status of all services
+status s: ## Show status of all services using top-level docker-compose
 	@echo "$(BOLD)Service Status:$(RESET)"
+	@docker-compose ps
+
+.PHONY: status-legacy
+status-legacy: ## Show status of all services (legacy method)
+	@echo "$(BOLD)Service Status (legacy):$(RESET)"
 ifdef HAS_MONITOR
 	@echo -n "$(CYAN)livestream-link-monitor:$(RESET) "
 	@cd $(MONITOR_DIR) && docker-compose ps --quiet livestream-link-monitor > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
@@ -179,8 +204,14 @@ ifdef HAS_WALL
 endif
 
 .PHONY: logs l
-logs l: ## Show logs from all services
+logs l: ## Show logs from all services using top-level docker-compose
 	@echo "$(BOLD)$(BLUE)Showing logs from all services...$(RESET)"
+	@echo "$(DIM)Press Ctrl+C to exit$(RESET)"
+	@docker-compose logs -f
+
+.PHONY: logs-legacy
+logs-legacy: ## Show logs from all services using individual docker-compose files (legacy)
+	@echo "$(BOLD)$(BLUE)Showing logs from all services (legacy)...$(RESET)"
 	@echo "$(DIM)Press Ctrl+C to exit$(RESET)"
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose logs -f livestream-link-monitor &
@@ -318,8 +349,13 @@ endif
 ##@ Docker
 
 .PHONY: build
-build: ## Build Docker images for all services
+build: ## Build Docker images for all services using top-level docker-compose
 	@echo "$(BOLD)$(BLUE)Building Docker images...$(RESET)"
+	@docker-compose build
+
+.PHONY: build-legacy
+build-legacy: ## Build Docker images using individual docker-compose files (legacy)
+	@echo "$(BOLD)$(BLUE)Building Docker images (legacy)...$(RESET)"
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose build
 endif
@@ -396,6 +432,24 @@ ifdef HAS_SOURCE
 	@echo -n "$(CYAN)streamsource:$(RESET) "
 	@curl -s http://localhost:3000/up >/dev/null 2>&1 && echo "$(GREEN)healthy$(RESET)" || echo "$(RED)unhealthy$(RESET)"
 endif
+
+##@ Submodules
+
+.PHONY: submodule-status
+submodule-status: ## Show status of all submodules
+	@echo "$(BOLD)$(BLUE)Submodule status:$(RESET)"
+	@git submodule status
+
+.PHONY: submodule-update
+submodule-update: ## Update all submodules to latest commit
+	@echo "$(BOLD)$(BLUE)Updating submodules...$(RESET)"
+	@git submodule update --remote --merge
+	@echo "$(GREEN)✓ Submodules updated!$(RESET)"
+
+.PHONY: submodule-fetch
+submodule-fetch: ## Fetch latest changes for all submodules
+	@echo "$(BOLD)$(BLUE)Fetching submodule changes...$(RESET)"
+	@git submodule foreach 'git fetch'
 
 ##@ Shortcuts
 

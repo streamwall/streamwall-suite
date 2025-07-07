@@ -2,7 +2,9 @@
 
 ## Overview
 
-This repository contains the Streamwall ecosystem: a collection of microservices that work together to provide comprehensive livestream management, monitoring, and display capabilities. The architecture follows a service-oriented design where each service has a specific responsibility in the overall workflow.
+This repository is a **meta-repository** that orchestrates the Streamwall ecosystem: a collection of microservices that work together to provide comprehensive livestream management, monitoring, and display capabilities. Each service is maintained in its own repository and included here as a Git submodule, providing a unified interface for development and deployment while maintaining clean separation of concerns.
+
+The architecture follows a service-oriented design where each service has a specific responsibility in the overall workflow.
 
 ## Service Architecture
 
@@ -20,6 +22,7 @@ External Sources → livestream-link-monitor → StreamSource API → Streamwall
 - **Role**: Authoritative source of truth for stream data, user management, and real-time updates
 - **API**: RESTful endpoints with JWT authentication and WebSocket support
 - **Features**: Real-time collaborative editing, feature flags, comprehensive security
+- **Repository**: [github.com/streamwall/streamsource](https://github.com/streamwall/streamsource)
 
 #### 2. **livestream-link-monitor/** (Node.js Service)
 - **Purpose**: Monitors Discord channels and Twitch chat for livestream URLs
@@ -27,6 +30,7 @@ External Sources → livestream-link-monitor → StreamSource API → Streamwall
 - **Role**: Automated stream discovery and validation from social platforms
 - **Integration**: Dual backend support (Google Sheets + StreamSource API)
 - **Features**: Platform detection, location parsing, rate limiting, deduplication
+- **Repository**: [github.com/streamwall/livestream-link-monitor](https://github.com/streamwall/livestream-link-monitor)
 
 #### 3. **livesheet-checker/** (Node.js Service) 
 - **Purpose**: Monitors Google Sheets for stream status and updates
@@ -34,6 +38,7 @@ External Sources → livestream-link-monitor → StreamSource API → Streamwall
 - **Role**: Bridge between Google Sheets and stream monitoring
 - **Integration**: Updates Google Sheets with live/offline status
 - **Features**: HTTP-based stream checking, rate limiting, batch updates
+- **Repository**: [github.com/streamwall/livesheet-updater](https://github.com/streamwall/livesheet-updater)
 - **Note**: Also known as `livesheet-updater` - they are the same service
 
 #### 4. **streamwall/** (Electron Application)
@@ -41,6 +46,7 @@ External Sources → livestream-link-monitor → StreamSource API → Streamwall
 - **Technology**: Electron, TypeScript (v2.0), Node.js workspaces
 - **Role**: Consumer of stream data, provides visual mosaic interface
 - **Features**: Multi-stream display, audio control, hotkeys, web-based control
+- **Repository**: [github.com/streamwall/streamwall](https://github.com/streamwall/streamwall)
 
 ## Integration Points
 
@@ -160,6 +166,40 @@ describe('Security Integration', () => {
 - **Test**: Sheet format compatibility
 - **Test**: Batch update performance
 - **Test**: Error handling for invalid data
+
+## Repository Management
+
+### Git Submodules
+All services are included as Git submodules, allowing:
+- Independent versioning of each service
+- Clean separation of concerns
+- Easy updates and rollbacks
+- Consistent deployment across environments
+
+### Working with Submodules
+```bash
+# Clone with all submodules
+git clone --recursive https://github.com/sayhiben/streamwall.git
+
+# Initialize submodules in existing clone
+git submodule update --init --recursive
+
+# Update all submodules to latest
+git submodule update --remote --merge
+
+# Check submodule status
+git submodule status
+
+# Work on a specific service
+cd streamsource
+git checkout -b feature/new-feature
+# make changes
+git commit -m "Add new feature"
+git push origin feature/new-feature
+cd ..
+git add streamsource
+git commit -m "Update streamsource submodule"
+```
 
 ## Development Workflow
 
