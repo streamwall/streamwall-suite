@@ -120,8 +120,8 @@ graph TD
 
 1. **Clone and setup**
    ```bash
-   git clone --recursive https://github.com/sayhiben/streamwall-project.git
-   cd streamwall-project
+   git clone --recursive https://github.com/streamwall/streamwall-suite.git
+   cd streamwall-suite
    ./setup-ecosystem.sh
    ```
 
@@ -312,6 +312,6 @@ This project is licensed under the MIT License - see individual service director
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/sayhiben/streamwall-project/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/sayhiben/streamwall-project/discussions)
-- **Wiki**: [GitHub Wiki](https://github.com/sayhiben/streamwall-project/wiki)
+- **Issues**: [GitHub Issues](https://github.com/streamwall/streamwall-suite/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/streamwall/streamwall-suite/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/streamwall/streamwall-suite/wiki)

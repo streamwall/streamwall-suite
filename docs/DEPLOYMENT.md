@@ -17,8 +17,8 @@ The setup script creates everything you need with working defaults:
 
 ```bash
 # Clone and setup
-git clone --recursive https://github.com/sayhiben/streamwall-project.git
-cd streamwall-project
+git clone --recursive https://github.com/streamwall/streamwall-suite.git
+cd streamwall-suite
 ./setup-ecosystem.sh
 
 # Start all services
@@ -142,8 +142,8 @@ For detailed DigitalOcean deployment instructions, see [streamsource/DIGITALOCEA
    su - deploy
    
    # Clone repository
-   git clone --recursive https://github.com/sayhiben/streamwall-project.git
-   cd streamwall-project
+   git clone --recursive https://github.com/streamwall/streamwall-suite.git
+   cd streamwall-suite
    
    # Setup production environment
    cp .env.example .env.production

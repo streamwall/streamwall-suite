@@ -41,7 +41,14 @@
       "Bash(cp:*)",
       "Bash(npm test:*)",
       "Bash(true)",
-      "Bash(git submodule:*)"
+      "Bash(git submodule:*)",
+      "Bash(gh auth:*)",
+      "Bash(git remote remove:*)",
+      "Bash(git remote:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(gh repo archive:*)"
     ],
     "deny": []
   }
