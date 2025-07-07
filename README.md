@@ -30,38 +30,47 @@ Each service is maintained in its own repository and included here as a submodul
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         External Sources                              │
-│  (Discord Channels, Twitch Chat, Manual Entry)                       │
-└──────────────────────┬──────────────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────────────┐
-│                    livestream-link-monitor                           │
-│  • Monitors Discord/Twitch for stream URLs                           │
-│  • Detects platform and extracts metadata                            │
-│  • Dual-write to Google Sheets & StreamSource API                    │
-└──────────────────────┬──────────────────────────────────────────────┘
-                       │
-         ┌─────────────┴─────────────┐
-         │                           │
-┌────────▼────────┐       ┌─────────▼────────┐
-│  Google Sheets  │       │  StreamSource    │
-│  (Legacy/Backup) │       │  (Rails 8 API)   │
-└────────┬────────┘       └─────────┬────────┘
-         │                           │
-         │      ┌────────────┐       │
-         └─────►│ livesheet- │◄──────┘
-                │  checker    │
-                │             │
-                └─────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────────────┐
-│                         Streamwall                                   │
-│  • Electron desktop application                                      │
-│  • Displays multiple streams in mosaic layout                        │
-│  • Audio control and hotkey support                                  │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph "External Sources"
+        Discord[Discord Channels]
+        Twitch[Twitch Chat]
+        Manual[Manual Entry]
+    end
+    
+    subgraph "Stream Discovery"
+        Monitor[livestream-link-monitor<br/>• Monitors Discord/Twitch<br/>• Platform detection<br/>• Metadata extraction]
+    end
+    
+    subgraph "Data Storage"
+        Sheets[Google Sheets<br/>Legacy/Backup]
+        API[StreamSource API<br/>Rails 8 Backend<br/>• REST API<br/>• WebSockets<br/>• PostgreSQL + Redis]
+    end
+    
+    subgraph "Background Workers"
+        Checker[livesheet-checker<br/>• Status monitoring<br/>• Data synchronization]
+    end
+    
+    subgraph "Client Applications"
+        Wall[Streamwall<br/>• Electron desktop app<br/>• Mosaic layout<br/>• Audio controls]
+    end
+    
+    Discord --> Monitor
+    Twitch --> Monitor
+    Manual --> API
+    
+    Monitor -->|Dual-write| Sheets
+    Monitor -->|Primary| API
+    
+    Sheets <-->|Sync| Checker
+    Checker -->|Update status| API
+    
+    API -->|GET /api/v1/streams| Wall
+    API -->|WebSocket updates| Wall
+    
+    style API fill:#e1f5e1
+    style Wall fill:#e1e5f5
+    style Monitor fill:#f5e1e1
 ```
 
 ## 📦 Services
@@ -105,49 +114,36 @@ Each service is maintained in its own repository and included here as a submodul
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js 18+
 - Git
-- Make
 
 ### Setup
 
-1. **Clone the repository with submodules**
+1. **Clone and setup**
    ```bash
-   git clone --recursive https://github.com/sayhiben/streamwall.git
-   cd streamwall
-   ```
-   
-   Or if you already cloned without submodules:
-   ```bash
-   git submodule update --init --recursive
+   git clone --recursive https://github.com/sayhiben/streamwall-project.git
+   cd streamwall-project
+   ./setup-ecosystem.sh
    ```
 
-2. **Configure environment**
+2. **Start all services**
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. **Add service credentials**
-   ```bash
-   # Google service account for livestream-link-monitor
-   cp livestream-link-monitor/credentials.example.json livestream-link-monitor/credentials.json
-   
-   # Google service account for livesheet-checker
-   cp livesheet-checker/creds.example.json livesheet-checker/creds.json
-   ```
-
-4. **Start all services**
-   ```bash
-   make up
-   # or
    docker-compose up -d
    ```
 
-5. **Check service health**
-   ```bash
-   make status
-   ```
+3. **Access the services**
+   - StreamSource API: http://localhost:3000
+   - API Documentation: http://localhost:3000/api-docs
+   - Streamwall: Run `cd streamwall && npm run start:app`
+
+### Development with Default Configuration
+
+The setup script creates a working development environment with:
+- PostgreSQL database (user: `streamsource`, password: `streamsource_password`)
+- Redis for caching and real-time features
+- Auto-generated secure keys for JWT and Rails
+- Example Google Sheets credentials (update with your own for full functionality)
+
+No configuration required to get started! The defaults work for local development.
 
 ## 🔧 Development
 
@@ -228,17 +224,14 @@ See [tests/integration/README.md](tests/integration/README.md) for details.
 
 ## 🚢 Deployment
 
-### Docker Compose (Development/Small Scale)
+### Docker Compose
 ```bash
+# Production deployment
 docker-compose -f docker-compose.production.yml up -d
 ```
 
-### Kubernetes (Large Scale)
-See [k8s/README.md](k8s/README.md) for Kubernetes deployment guides.
-
-### Cloud Providers
-- DigitalOcean: See [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md)
-- AWS/GCP/Azure: Coming soon
+### DigitalOcean
+See [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) for cloud deployment instructions.
 
 ## 📝 Configuration
 
@@ -319,6 +312,6 @@ This project is licensed under the MIT License - see individual service director
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/sayhiben/streamwall/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/sayhiben/streamwall/discussions)
-- **Wiki**: [GitHub Wiki](https://github.com/sayhiben/streamwall/wiki)
+- **Issues**: [GitHub Issues](https://github.com/sayhiben/streamwall-project/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sayhiben/streamwall-project/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/sayhiben/streamwall-project/wiki)

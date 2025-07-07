@@ -35,7 +35,18 @@ fi
 if [ ! -f .env ]; then
     echo "📝 Creating .env file from template..."
     cp .env.example .env
-    echo "⚠️  Please edit .env file with your configuration values!"
+    
+    # Generate secure keys if not present
+    SECRET_KEY_BASE=$(openssl rand -hex 64)
+    JWT_SECRET=$(openssl rand -hex 32)
+    
+    # Add generated keys to .env
+    echo "" >> .env
+    echo "# Auto-generated secure keys" >> .env
+    echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >> .env
+    echo "JWT_SECRET=$JWT_SECRET" >> .env
+    
+    echo "✅ .env file created with secure defaults"
 else
     echo "✅ .env file exists"
 fi
@@ -75,15 +86,21 @@ fi
 # StreamSource .env
 if [ ! -f streamsource/.env ]; then
     echo "📝 Creating streamsource/.env file..."
+    
+    # Use the same secrets from main .env if available
+    if [ -f .env ]; then
+        source .env
+    fi
+    
     cat > streamsource/.env << EOF
 # StreamSource Development Environment
 RAILS_ENV=development
-DATABASE_URL=postgresql://streamsource:streamsource_password@localhost:5432/streamsource_development
-REDIS_URL=redis://localhost:6379/0
-SECRET_KEY_BASE=$(openssl rand -hex 64)
-JWT_SECRET=$(openssl rand -hex 32)
+DATABASE_URL=postgresql://streamsource:streamsource_password@postgres:5432/streamsource_development
+REDIS_URL=redis://redis:6379/0
+SECRET_KEY_BASE=${SECRET_KEY_BASE:-$(openssl rand -hex 64)}
+JWT_SECRET=${JWT_SECRET:-$(openssl rand -hex 32)}
 EOF
-    echo "✅ Created streamsource/.env with generated secrets"
+    echo "✅ Created streamsource/.env with secure defaults"
 else
     echo "✅ streamsource/.env exists"
 fi

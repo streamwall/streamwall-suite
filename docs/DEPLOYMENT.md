@@ -1,45 +1,51 @@
 # Deployment Guide
 
-This guide covers deployment options for the Streamwall ecosystem, from development to production environments.
+This guide covers deployment options for the Streamwall ecosystem.
 
-## Deployment Options Overview
+## Deployment Options
 
-| Environment | Use Case | Infrastructure | Complexity |
-|-------------|----------|----------------|------------|
-| Docker Compose | Development, Small teams | Single server | Low |
-| DigitalOcean Droplet | Small-Medium production | VPS | Medium |
-| Kubernetes | Large scale production | Cloud/On-premise | High |
-| Cloud PaaS | Rapid deployment | Heroku, Railway | Low |
+| Method | Use Case | Complexity |
+|--------|----------|------------|
+| Docker Compose | Development & Small Production | Low |
+| DigitalOcean | Scalable Production | Medium |
 
 ## Docker Compose Deployment
 
 ### Development Environment
 
-1. **Clone repository**
-   ```bash
-   git clone https://github.com/sayhiben/streamwall.git
-   cd streamwall
-   ```
+The setup script creates everything you need with working defaults:
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+```bash
+# Clone and setup
+git clone --recursive https://github.com/sayhiben/streamwall-project.git
+cd streamwall-project
+./setup-ecosystem.sh
 
-3. **Start services**
-   ```bash
-   docker-compose up -d
-   ```
+# Start all services
+docker-compose up -d
 
-4. **Initialize database**
-   ```bash
-   docker-compose exec streamsource bin/rails db:create db:migrate db:seed
-   ```
+# Check status
+docker-compose ps
+```
+
+Default services will be available at:
+- StreamSource API: http://localhost:3000
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
 
 ### Production Docker Compose
 
-1. **Create production compose file**
+1. **Create production environment file**
+   ```bash
+   cp .env.example .env.production
+   # Edit .env.production with production values:
+   # - Set RAILS_ENV=production
+   # - Use strong passwords
+   # - Configure real Google credentials
+   # - Set production API keys
+   ```
+
+2. **Create production compose file**
    ```yaml
    # docker-compose.production.yml
    version: '3.8'
@@ -57,34 +63,62 @@ This guide covers deployment options for the Streamwall ecosystem, from developm
          - streamsource
      
      streamsource:
-       build:
-         context: ./streamsource
-         args:
-           RAILS_ENV: production
        environment:
          - RAILS_ENV=production
          - RAILS_SERVE_STATIC_FILES=true
        command: bundle exec puma -C config/puma.rb
+     
+     postgres:
+       volumes:
+         - postgres_data:/var/lib/postgresql/data
+     
+     redis:
+       volumes:
+         - redis_data:/data
+
+   volumes:
+     postgres_data:
+     redis_data:
    ```
 
-2. **Deploy**
+3. **Deploy**
    ```bash
+   # Build and start
    docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+   
+   # Initialize database
+   docker-compose exec streamsource bin/rails db:create db:migrate db:seed
+   
+   # Precompile assets
+   docker-compose exec streamsource bin/rails assets:precompile
+   ```
+
+4. **SSL Setup (Optional)**
+   ```bash
+   # Install Certbot
+   sudo apt-get update
+   sudo apt-get install certbot
+   
+   # Generate certificate
+   sudo certbot certonly --standalone -d yourdomain.com
+   
+   # Update nginx.conf to use certificates
    ```
 
 ## DigitalOcean Deployment
 
-See [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](../streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) for detailed instructions.
+For detailed DigitalOcean deployment instructions, see [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](../streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md).
 
-### Quick Setup
+### Quick DigitalOcean Setup
 
 1. **Create Droplet**
    - Ubuntu 22.04 LTS
    - 2GB RAM minimum (4GB recommended)
-   - SSH keys configured
+   - Add your SSH key
 
 2. **Initial Server Setup**
    ```bash
+   # Connect to your droplet
    ssh root@your-droplet-ip
    
    # Create deploy user
@@ -94,483 +128,142 @@ See [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](../streamsource/DIGITALOCEAN
    # Install Docker
    curl -fsSL https://get.docker.com | sh
    usermod -aG docker deploy
+   
+   # Setup firewall
+   ufw allow OpenSSH
+   ufw allow 80/tcp
+   ufw allow 443/tcp
+   ufw enable
    ```
 
 3. **Deploy Application**
    ```bash
-   # As deploy user
-   git clone https://github.com/sayhiben/streamwall.git
-   cd streamwall
+   # Switch to deploy user
+   su - deploy
    
-   # Configure
+   # Clone repository
+   git clone --recursive https://github.com/sayhiben/streamwall-project.git
+   cd streamwall-project
+   
+   # Setup production environment
    cp .env.example .env.production
-   # Edit .env.production
+   # Edit .env.production with your production values
    
-   # Deploy
-   docker-compose -f docker-compose.production.yml up -d
+   # Start services
+   docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
    ```
 
-4. **Setup SSL with Let's Encrypt**
+4. **Configure Domain**
+   - Point your domain to the droplet IP
+   - Setup SSL with Let's Encrypt:
    ```bash
-   # Install Certbot
-   sudo snap install certbot --classic
-   
-   # Generate certificate
    sudo certbot certonly --standalone -d yourdomain.com
-   
-   # Configure Nginx to use certificates
    ```
 
-## Kubernetes Deployment
+## Environment Variables
 
-### Prerequisites
-- Kubernetes cluster (1.24+)
-- kubectl configured
-- Helm 3 installed
+### Required for Production
 
-### Deployment Steps
+```bash
+# Rails
+RAILS_ENV=production
+SECRET_KEY_BASE=<generate with: openssl rand -hex 64>
+RAILS_MASTER_KEY=<from config/master.key>
 
-1. **Create namespace**
-   ```bash
-   kubectl create namespace streamwall
-   ```
+# Database
+DATABASE_URL=postgresql://streamsource:password@postgres:5432/streamsource_production
 
-2. **Create secrets**
-   ```bash
-   kubectl create secret generic streamwall-secrets \
-     --from-literal=database-url=postgresql://... \
-     --from-literal=jwt-secret=... \
-     --from-literal=api-key=... \
-     -n streamwall
-   ```
+# Redis
+REDIS_URL=redis://redis:6379/0
 
-3. **Deploy PostgreSQL**
-   ```bash
-   helm repo add bitnami https://charts.bitnami.com/bitnami
-   helm install postgres bitnami/postgresql \
-     --set auth.postgresPassword=yourpassword \
-     --set auth.database=streamsource \
-     -n streamwall
-   ```
+# JWT Auth
+JWT_SECRET=<generate with: openssl rand -hex 32>
 
-4. **Deploy Redis**
-   ```bash
-   helm install redis bitnami/redis \
-     --set auth.password=yourredispassword \
-     -n streamwall
-   ```
+# Google Sheets Integration
+GOOGLE_SHEET_ID=<your-sheet-id>
+GOOGLE_SERVICE_ACCOUNT_EMAIL=<service-account@project.iam.gserviceaccount.com>
 
-5. **Deploy applications**
-   ```yaml
-   # streamsource-deployment.yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: streamsource
-     namespace: streamwall
-   spec:
-     replicas: 3
-     selector:
-       matchLabels:
-         app: streamsource
-     template:
-       metadata:
-         labels:
-           app: streamsource
-       spec:
-         containers:
-         - name: streamsource
-           image: streamwall/streamsource:latest
-           ports:
-           - containerPort: 3000
-           env:
-           - name: DATABASE_URL
-             valueFrom:
-               secretKeyRef:
-                 name: streamwall-secrets
-                 key: database-url
-           - name: REDIS_URL
-             value: redis://redis-master:6379
-   ```
-
-6. **Create services**
-   ```yaml
-   # streamsource-service.yaml
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: streamsource
-     namespace: streamwall
-   spec:
-     selector:
-       app: streamsource
-     ports:
-     - port: 3000
-       targetPort: 3000
-   ```
-
-7. **Setup ingress**
-   ```yaml
-   # ingress.yaml
-   apiVersion: networking.k8s.io/v1
-   kind: Ingress
-   metadata:
-     name: streamwall-ingress
-     namespace: streamwall
-     annotations:
-       cert-manager.io/cluster-issuer: letsencrypt-prod
-   spec:
-     tls:
-     - hosts:
-       - api.streamwall.com
-       secretName: streamwall-tls
-     rules:
-     - host: api.streamwall.com
-       http:
-         paths:
-         - path: /
-           pathType: Prefix
-           backend:
-             service:
-               name: streamsource
-               port:
-                 number: 3000
-   ```
-
-## Cloud Platform Deployments
-
-### Heroku
-
-1. **Install Heroku CLI**
-   ```bash
-   brew install heroku/brew/heroku
-   ```
-
-2. **Create apps**
-   ```bash
-   heroku create streamwall-api
-   heroku create streamwall-monitor
-   ```
-
-3. **Add buildpacks**
-   ```bash
-   heroku buildpacks:set heroku/ruby -a streamwall-api
-   heroku buildpacks:set heroku/nodejs -a streamwall-monitor
-   ```
-
-4. **Add addons**
-   ```bash
-   heroku addons:create heroku-postgresql:mini -a streamwall-api
-   heroku addons:create heroku-redis:mini -a streamwall-api
-   ```
-
-5. **Deploy**
-   ```bash
-   git push heroku main
-   ```
-
-### Railway
-
-1. **Install Railway CLI**
-   ```bash
-   npm install -g @railway/cli
-   ```
-
-2. **Initialize project**
-   ```bash
-   railway login
-   railway init
-   ```
-
-3. **Add services**
-   ```bash
-   railway add postgresql
-   railway add redis
-   ```
-
-4. **Deploy**
-   ```bash
-   railway up
-   ```
-
-### AWS ECS
-
-1. **Build and push images**
-   ```bash
-   aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_URI
-   
-   docker build -t streamwall/streamsource ./streamsource
-   docker tag streamwall/streamsource:latest $ECR_URI/streamwall/streamsource:latest
-   docker push $ECR_URI/streamwall/streamsource:latest
-   ```
-
-2. **Create task definition**
-   ```json
-   {
-     "family": "streamwall",
-     "taskRoleArn": "arn:aws:iam::123456789:role/ecsTaskRole",
-     "executionRoleArn": "arn:aws:iam::123456789:role/ecsExecutionRole",
-     "networkMode": "awsvpc",
-     "containerDefinitions": [
-       {
-         "name": "streamsource",
-         "image": "123456789.dkr.ecr.us-west-2.amazonaws.com/streamwall/streamsource:latest",
-         "memory": 512,
-         "cpu": 256,
-         "essential": true,
-         "portMappings": [
-           {
-             "containerPort": 3000,
-             "protocol": "tcp"
-           }
-         ]
-       }
-     ]
-   }
-   ```
-
-3. **Create service**
-   ```bash
-   aws ecs create-service \
-     --cluster streamwall \
-     --service-name streamsource \
-     --task-definition streamwall:1 \
-     --desired-count 2
-   ```
-
-## CI/CD Pipeline
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy to Production
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Run tests
-      run: make test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Build and push Docker images
-      env:
-        DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-      run: |
-        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-        make build-production
-        make push-production
-    
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ secrets.DEPLOY_USER }}
-        key: ${{ secrets.DEPLOY_KEY }}
-        script: |
-          cd /opt/streamwall
-          git pull
-          docker-compose -f docker-compose.production.yml pull
-          docker-compose -f docker-compose.production.yml up -d
-          docker-compose exec -T streamsource bin/rails db:migrate
+# Discord Bot
+DISCORD_TOKEN=<your-bot-token>
+DISCORD_WEBHOOK_URL=<your-webhook-url>
 ```
 
-## Monitoring and Maintenance
+## Monitoring
 
 ### Health Checks
 
-1. **Setup monitoring endpoints**
-   ```nginx
-   location /health {
-     access_log off;
-     proxy_pass http://streamsource:3000/health;
-   }
-   ```
+All services expose health endpoints:
+- StreamSource: `GET /health`
+- Livestream Monitor: `GET /health`
 
-2. **External monitoring**
-   - UptimeRobot
-   - Pingdom
-   - StatusCake
+### Logs
 
-### Backup Strategy
-
-1. **Database backups**
-   ```bash
-   # Daily backup script
-   #!/bin/bash
-   DATE=$(date +%Y%m%d_%H%M%S)
-   docker-compose exec -T postgres pg_dump -U streamsource streamsource_production | gzip > backup_$DATE.sql.gz
-   
-   # Upload to S3
-   aws s3 cp backup_$DATE.sql.gz s3://streamwall-backups/
-   
-   # Keep only last 30 days
-   find . -name "backup_*.sql.gz" -mtime +30 -delete
-   ```
-
-2. **Application data**
-   ```bash
-   # Backup uploads and configurations
-   tar -czf streamwall_data_$DATE.tar.gz uploads/ config/
-   ```
-
-### Log Management
-
-1. **Centralized logging**
-   ```yaml
-   # docker-compose.yml
-   services:
-     app:
-       logging:
-         driver: "json-file"
-         options:
-           max-size: "10m"
-           max-file: "3"
-   ```
-
-2. **Log aggregation**
-   - ELK Stack (Elasticsearch, Logstash, Kibana)
-   - Datadog
-   - New Relic
-
-### Performance Optimization
-
-1. **Enable caching**
-   ```ruby
-   # config/environments/production.rb
-   config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
-   ```
-
-2. **Asset optimization**
-   ```bash
-   # Precompile assets
-   docker-compose exec streamsource bin/rails assets:precompile
-   ```
-
-3. **Database optimization**
-   ```sql
-   -- Add indexes
-   CREATE INDEX idx_streams_status ON streams(status);
-   CREATE INDEX idx_streams_platform ON streams(platform);
-   ```
-
-## Security Hardening
-
-### SSL/TLS Configuration
-
-```nginx
-# Strong SSL configuration
-ssl_protocols TLSv1.2 TLSv1.3;
-ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
-ssl_prefer_server_ciphers off;
-ssl_session_cache shared:SSL:10m;
-ssl_session_timeout 10m;
-ssl_stapling on;
-ssl_stapling_verify on;
-```
-
-### Firewall Rules
-
+View logs for all services:
 ```bash
-# UFW firewall setup
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f streamsource
 ```
 
-### Environment Isolation
+### Backup
 
+Create automated backups:
 ```bash
-# Use Docker secrets
-docker secret create jwt_secret jwt_secret.txt
-docker service update --secret-add jwt_secret streamwall_api
+# Backup database
+docker-compose exec postgres pg_dump -U streamsource streamsource_production > backup.sql
+
+# Backup Redis
+docker-compose exec redis redis-cli SAVE
+docker cp streamwall-redis-1:/data/dump.rdb ./redis-backup.rdb
 ```
 
-## Rollback Procedures
+## Troubleshooting
 
-### Quick Rollback
-
+### Services won't start
 ```bash
-# Tag before deployment
-docker tag streamwall/streamsource:latest streamwall/streamsource:rollback
+# Check logs
+docker-compose logs
 
-# Rollback if needed
-docker-compose stop streamsource
-docker tag streamwall/streamsource:rollback streamwall/streamsource:latest
-docker-compose up -d streamsource
+# Verify environment variables
+docker-compose config
+
+# Check disk space
+df -h
 ```
 
-### Database Rollback
-
+### Database connection errors
 ```bash
-# Rollback migration
-docker-compose exec streamsource bin/rails db:rollback
+# Check PostgreSQL is running
+docker-compose ps postgres
 
-# Restore from backup
-docker-compose exec -T postgres psql -U streamsource streamsource_production < backup.sql
+# Test connection
+docker-compose exec postgres psql -U streamsource -d streamsource_production
 ```
 
-## Scaling Strategies
+### Memory issues
+```bash
+# Check memory usage
+free -h
 
-### Horizontal Scaling
-
-```yaml
-# docker-compose.scale.yml
-services:
-  streamsource:
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
+# Restart services
+docker-compose restart
 ```
 
-### Load Balancing
+## Security Checklist
 
-```nginx
-upstream streamsource {
-  least_conn;
-  server streamsource1:3000;
-  server streamsource2:3000;
-  server streamsource3:3000;
-}
-```
+- [ ] Change all default passwords
+- [ ] Enable firewall (ufw)
+- [ ] Setup SSL certificates
+- [ ] Restrict database access
+- [ ] Enable rate limiting
+- [ ] Regular security updates
+- [ ] Backup strategy in place
 
-### Auto-scaling
+## Next Steps
 
-```yaml
-# Kubernetes HPA
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: streamsource-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: streamsource
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-```
+1. Configure monitoring (UptimeRobot, Pingdom)
+2. Setup automated backups
+3. Configure log rotation
+4. Plan for scaling (add more droplets, load balancer)

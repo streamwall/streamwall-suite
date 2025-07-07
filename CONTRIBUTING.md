@@ -37,9 +37,9 @@ By participating in this project, you agree to abide by our Code of Conduct:
 1. **Fork the repository**
    ```bash
    # Fork on GitHub, then:
-   git clone --recursive https://github.com/YOUR_USERNAME/streamwall.git
-   cd streamwall
-   git remote add upstream https://github.com/sayhiben/streamwall.git
+   git clone --recursive https://github.com/YOUR_USERNAME/streamwall-project.git
+   cd streamwall-project
+   git remote add upstream https://github.com/sayhiben/streamwall-project.git
    ```
 
 2. **Set up development environment**
