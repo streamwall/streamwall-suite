@@ -10,8 +10,6 @@
 #   - PostgreSQL: localhost:5432
 #   - Redis: localhost:6379
 
-version: '3.8'
-
 services:
   # PostgreSQL Database (for StreamSource)
   postgres:
@@ -52,6 +50,7 @@ services:
     build: ./streamsource
     container_name: streamsource-api
     restart: unless-stopped
+    profiles: ["development"]
     ports:
       - "${STREAMSOURCE_PORT:-3000}:3000"
     environment:
@@ -84,6 +83,7 @@ services:
     build: ./livestream-link-monitor
     container_name: livestream-monitor
     restart: unless-stopped
+    profiles: ["development"]
     depends_on:
       streamsource:
         condition: service_healthy
@@ -127,6 +127,7 @@ services:
     build: ./livesheet-updater
     container_name: livesheet-updater
     restart: unless-stopped
+    profiles: ["development"]
     depends_on:
       streamsource:
         condition: service_healthy
@@ -184,6 +185,9 @@ services:
   streamsource-demo:
     extends: streamsource
     profiles: ["demo"]
+    container_name: streamsource-api-demo
+    ports:
+      - "${DEMO_STREAMSOURCE_PORT:-3100}:3000"
     environment:
       - RAILS_ENV=development
       - NODE_ENV=development
@@ -198,6 +202,12 @@ services:
   livestream-monitor-demo:
     extends: livestream-monitor
     profiles: ["demo"]
+    container_name: livestream-monitor-demo
+    ports:
+      - "${DEMO_MONITOR_PORT:-3101}:3001"
+    depends_on:
+      streamsource-demo:
+        condition: service_healthy
     environment:
       - NODE_ENV=development
       - DEMO_MODE=true
@@ -215,6 +225,10 @@ services:
   livesheet-updater-demo:
     extends: livesheet-updater
     profiles: ["demo"]
+    container_name: livesheet-updater-demo
+    depends_on:
+      streamsource-demo:
+        condition: service_healthy
     environment:
       - NODE_ENV=development
       - DEMO_MODE=true

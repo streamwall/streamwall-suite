@@ -77,7 +77,8 @@
       "Bash(./update-references.sh)",
       "Bash(git rm:*)",
       "Bash(rg:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(./dev-start.sh:*)"
     ],
     "deny": []
   }

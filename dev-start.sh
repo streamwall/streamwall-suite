@@ -28,6 +28,67 @@ spinner() {
     printf "    \b\b\b\b"
 }
 
+# Check for existing containers
+check_existing_containers() {
+    # Get all containers that might be related to Streamwall
+    local existing_containers=$(docker ps -a --format "{{.Names}}" 2>/dev/null | grep -E "(streamwall|livestream|livesheet|tiktok|streamsource)" | sort)
+    
+    # Also check for specific known container names
+    local known_containers="streamsource-api livestream-monitor livesheet-updater streamwall-app streamwall-postgres streamwall-redis"
+    for container in $known_containers; do
+        if docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
+            existing_containers=$(echo -e "$existing_containers\n$container" | sort -u | grep -v '^$')
+        fi
+    done
+    
+    if [ -n "$existing_containers" ]; then
+        echo -e "\n${YELLOW}⚠️  Found existing Streamwall containers:${NC}"
+        echo "$existing_containers" | while read container; do
+            echo "  • $container"
+        done
+        echo ""
+        echo -e "${CYAN}What would you like to do?${NC}"
+        echo "  1) Remove existing containers and start fresh"
+        echo "  2) Keep existing containers (may cause conflicts)"
+        echo ""
+        read -p "Enter choice (1-2) [1]: " container_choice
+        container_choice=${container_choice:-1}
+        
+        if [ "$container_choice" = "1" ]; then
+            echo -e "${YELLOW}Removing existing containers...${NC}"
+            
+            # Stop and remove all containers matching our patterns
+            local all_containers=$(docker ps -a --format "{{.Names}}" | grep -E "(streamwall|livestream-monitor|livesheet-updater|tiktok-live-checker|streamsource)" || true)
+            
+            # First try docker compose down with all profiles to clean up properly
+            COMPOSE_PROFILES="demo,development" docker compose down 2>/dev/null || true
+            
+            # Also check in the streamsource subdirectory if it exists
+            if [ -d "streamsource" ]; then
+                (cd streamsource && docker compose down 2>/dev/null || true)
+            fi
+            
+            # Force remove ALL matching containers, including ones not in our compose file
+            if [ -n "$all_containers" ]; then
+                echo "$all_containers" | while read container; do
+                    docker rm -f "$container" 2>/dev/null || true
+                done
+            fi
+            
+            # Double-check for specific containers that might cause issues
+            local known_containers="streamsource-api livestream-monitor livesheet-updater streamwall-app streamwall-postgres streamwall-redis"
+            for container in $known_containers; do
+                docker rm -f "$container" 2>/dev/null || true
+            done
+            
+            echo -e "${GREEN}✅ Existing containers removed${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Keeping existing containers. This may cause conflicts.${NC}"
+            echo -e "${CYAN}💡 Tip: Run 'docker compose down' first to avoid conflicts.${NC}"
+        fi
+    fi
+}
+
 # Banner
 clear
 echo -e "${BOLD}${BLUE}"
@@ -78,15 +139,18 @@ if [ "$ports_ok" = false ]; then
     export POSTGRES_PORT=5433
     export REDIS_PORT=6380
     export STREAMWALL_WEB_PORT=8081
+    export DEMO_STREAMSOURCE_PORT=3100
+    export DEMO_MONITOR_PORT=3101
+    export PORTS_ADJUSTED=true
 fi
 
 echo -e "${GREEN}✅ Pre-flight checks passed!${NC}\n"
 
 # Setup mode selection
 echo -e "${CYAN}🚀 Choose your setup mode:${NC}"
-echo "  1) ${BOLD}Demo Mode${NC} - Pre-configured with sample data (recommended for first-time users)"
-echo "  2) ${BOLD}Development Mode${NC} - Real services with easy defaults"
-echo "  3) ${BOLD}Custom Mode${NC} - Configure everything yourself"
+echo -e "  1) ${BOLD}Demo Mode${NC} - Pre-configured with sample data (recommended for first-time users)"
+echo -e "  2) ${BOLD}Development Mode${NC} - Real services with easy defaults"
+echo -e "  3) ${BOLD}Custom Mode${NC} - Configure everything yourself"
 echo ""
 read -p "Enter choice (1-3) [1]: " mode
 mode=${mode:-1}
@@ -111,11 +175,13 @@ TZ=UTC
 DEMO_MODE=true
 
 # Service Ports
-STREAMSOURCE_PORT=3000
-LIVESTREAM_MONITOR_PORT=3001
-POSTGRES_PORT=5432
-REDIS_PORT=6379
-STREAMWALL_WEB_PORT=8080
+STREAMSOURCE_PORT=${STREAMSOURCE_PORT:-3000}
+LIVESTREAM_MONITOR_PORT=${LIVESTREAM_MONITOR_PORT:-3001}
+POSTGRES_PORT=${POSTGRES_PORT:-5432}
+REDIS_PORT=${REDIS_PORT:-6379}
+STREAMWALL_WEB_PORT=${STREAMWALL_WEB_PORT:-8080}
+DEMO_STREAMSOURCE_PORT=${DEMO_STREAMSOURCE_PORT:-3100}
+DEMO_MONITOR_PORT=${DEMO_MONITOR_PORT:-3101}
 
 # Database (auto-configured)
 POSTGRES_USER=streamwall
@@ -156,8 +222,14 @@ EOF
         # Use demo env
         cp .env.demo .env
         
-        # Start with demo profile
-        COMPOSE_PROFILES="demo" docker compose up -d
+        # Check for existing containers
+        check_existing_containers
+        
+        # Stop all services first to avoid port conflicts
+        docker compose down 2>/dev/null || true
+        
+        # Start demo profile services and scale down base services to 0
+        COMPOSE_PROFILES="demo,development" docker compose up -d --scale streamsource=0 --scale livestream-monitor=0 --scale livesheet-updater=0
         ;;
         
     2)
@@ -192,8 +264,11 @@ EOF
             echo "RAILS_LOG_TO_STDOUT=true" >> .env
         fi
         
-        # Start normal services
-        docker compose up -d
+        # Check for existing containers
+        check_existing_containers
+        
+        # Start development profile services
+        COMPOSE_PROFILES="development" docker compose up -d
         ;;
         
     3)
