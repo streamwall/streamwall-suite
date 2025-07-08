@@ -34,7 +34,7 @@ docker compose up -d streamsource postgres redis
 docker compose up -d livestream-monitor
 
 # Add Google Sheets checker
-docker compose up -d livesheet-checker
+docker compose up -d livesheet-updater
 
 # Everything including desktop app
 docker compose --profile desktop up -d

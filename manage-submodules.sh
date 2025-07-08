@@ -5,7 +5,7 @@
 
 set -e
 
-SUBMODULES=("streamsource" "livestream-link-monitor" "livesheet-checker" "streamwall")
+SUBMODULES=("streamsource" "livestream-link-monitor" "livesheet-updater" "streamwall")
 
 function show_help() {
     cat << EOF

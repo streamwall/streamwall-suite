@@ -23,7 +23,7 @@ docker compose up -d streamsource postgres redis
 docker compose up -d streamsource postgres redis livestream-link-monitor
 
 # API + Google Sheets monitor
-docker compose up -d streamsource postgres redis livesheet-checker
+docker compose up -d streamsource postgres redis livesheet-updater
 ```
 
 ## 3. Verify It's Working

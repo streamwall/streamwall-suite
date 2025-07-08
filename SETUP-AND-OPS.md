@@ -36,7 +36,7 @@ docker compose up -d streamsource postgres redis
 
 # Add specific monitors
 docker compose up -d livestream-monitor
-docker compose up -d livesheet-checker
+docker compose up -d livesheet-updater
 
 # Include desktop app
 docker compose --profile desktop up -d
@@ -48,7 +48,7 @@ docker compose --profile desktop up -d
 docker compose up -d streamsource postgres redis livestream-monitor
 
 # API + Google Sheets checker only  
-docker compose up -d streamsource postgres redis livesheet-checker
+docker compose up -d streamsource postgres redis livesheet-updater
 
 # Everything
 docker compose --profile full up -d

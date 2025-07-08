@@ -242,7 +242,7 @@ setup_environment() {
             sed_inplace "$ENV_FILE" "s|GOOGLE_SHEET_ID=.*|GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID|"
             print_color "$YELLOW" "Note: You'll need to place your Google credentials JSON file at:"
             print_color "$YELLOW" "  livestream-link-monitor/creds.json"
-            print_color "$YELLOW" "  livesheet-checker/creds.json"
+            print_color "$YELLOW" "  livesheet-updater/creds.json"
         fi
     fi
     
@@ -316,13 +316,13 @@ setup_services() {
         cd "$SCRIPT_DIR"
     fi
     
-    # Setup livesheet-checker
-    if [ -d "$SCRIPT_DIR/livesheet-checker" ]; then
-        cd "$SCRIPT_DIR/livesheet-checker"
+    # Setup livesheet-updater
+    if [ -d "$SCRIPT_DIR/livesheet-updater" ]; then
+        cd "$SCRIPT_DIR/livesheet-updater"
         # This service uses creds.json, create a placeholder if needed
         if [ ! -f "creds.json" ]; then
             echo '{"note": "Place your Google service account credentials here"}' > creds.json
-            print_color "$YELLOW" "  Created placeholder creds.json for livesheet-checker"
+            print_color "$YELLOW" "  Created placeholder creds.json for livesheet-updater"
         fi
         cd "$SCRIPT_DIR"
     fi
@@ -641,7 +641,7 @@ configure_specific_service() {
     print_color "$BLUE" "Select service to configure:"
     echo "1) StreamSource (API Backend)"
     echo "2) Livestream Link Monitor (Discord/Twitch Bot)"
-    echo "3) Livesheet Checker (Google Sheets Monitor)"
+    echo "3) Livesheet Updater (Google Sheets Monitor)"
     echo "4) Streamwall (Desktop App)"
     echo "5) Back to main menu"
     echo
@@ -764,17 +764,17 @@ configure_livestream_monitor_only() {
 }
 
 configure_livesheet_checker_only() {
-    print_header "Configure Livesheet Checker"
+    print_header "Configure Livesheet Updater"
     
     print_color "$YELLOW" "Note: Google Sheets integration is legacy. Consider using StreamSource API instead."
     echo
     
     configure_google_sheets
     
-    read -r -p "Start/restart Livesheet Checker? (Y/n): " start_service
+    read -r -p "Start/restart Livesheet Updater? (Y/n): " start_service
     if [[ ! "$start_service" =~ ^[Nn]$ ]]; then
-        docker compose up -d livesheet-checker
-        print_color "$GREEN" "✓ Livesheet Checker started"
+        docker compose up -d livesheet-updater
+        print_color "$GREEN" "✓ Livesheet Updater started"
     fi
     
     show_main_menu
@@ -870,7 +870,7 @@ configure_google_sheets() {
         
         print_color "$YELLOW" "Please place your Google credentials JSON at:"
         print_color "$YELLOW" "  • livestream-link-monitor/creds.json"
-        print_color "$YELLOW" "  • livesheet-checker/creds.json"
+        print_color "$YELLOW" "  • livesheet-updater/creds.json"
         echo
         
     read -r -p "Have you placed the credentials files? (y/N): " creds_placed
@@ -925,7 +925,7 @@ parse_args() {
                 case $1 in
                     streamsource) configure_streamsource_only; exit 0 ;;
                     livestream-monitor) configure_livestream_monitor_only; exit 0 ;;
-                    livesheet-checker) configure_livesheet_checker_only; exit 0 ;;
+                    livesheet-updater) configure_livesheet_checker_only; exit 0 ;;
                     streamwall) configure_streamwall_only; exit 0 ;;
                     *) print_color "$RED" "Unknown service: $1"; exit 1 ;;
                 esac
@@ -966,7 +966,7 @@ show_help() {
     echo "  --validate              Validate current configuration"
     echo "  --service SERVICE       Configure specific service:"
     echo "                          streamsource, livestream-monitor,"
-    echo "                          livesheet-checker, streamwall"
+    echo "                          livesheet-updater, streamwall"
     echo "  --integration TYPE      Configure specific integration:"
     echo "                          discord, twitch, google-sheets, admin"
     echo "  --help, -h              Show this help message"

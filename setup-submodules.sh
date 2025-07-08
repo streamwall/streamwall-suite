@@ -16,7 +16,7 @@ fi
 # Clone missing repositories
 declare -A repos=(
     ["livestream-link-monitor"]="https://github.com/yourusername/livestream-link-monitor.git"
-    ["livesheet-checker"]="https://github.com/yourusername/livesheet-checker.git"
+    ["livesheet-updater"]="https://github.com/yourusername/livesheet-updater.git"
     ["streamsource"]="https://github.com/yourusername/streamsource.git"
     ["streamwall"]="https://github.com/yourusername/streamwall.git"
 )

@@ -18,7 +18,7 @@ This directory contains a unified Docker Compose setup for running all Streamwal
 3. **Ensure credential files exist:**
    - `livestream-link-monitor/credentials.json` - Google service account for link monitor
    - `livestream-link-monitor/.env` - Discord/Twitch configuration
-   - `livesheet-checker/creds.json` - Google service account for status checker
+   - `livesheet-updater/creds.json` - Google service account for status checker
 
 4. **Start all services:**
    ```bash
@@ -54,7 +54,7 @@ This directory contains a unified Docker Compose setup for running all Streamwal
    - Requires Discord bot token and Google Sheets credentials
    - Health check endpoint: http://localhost:3001/health
 
-2. **livesheet-checker**
+2. **livesheet-updater**
    - Checks stream status (live/offline)
    - Updates Google Sheets with status
    - Requires Google Sheets credentials
@@ -101,7 +101,7 @@ ENABLE_REDIS=false
 Each service has its own configuration:
 
 - **livestream-monitor**: Configure in `livestream-link-monitor/.env`
-- **livesheet-checker**: Uses `livesheet-checker/creds.json`
+- **livesheet-updater**: Uses `livesheet-updater/creds.json`
 - **streamsource**: Configure in `.env` file
 
 ## 🐳 Docker Network
@@ -109,7 +109,7 @@ Each service has its own configuration:
 All services run on the `streamwall-network` bridge network, allowing them to communicate using service names:
 
 - `livestream-monitor:3001`
-- `livesheet-checker`
+- `livesheet-updater`
 - `postgres:5432` (if enabled)
 - `redis:6379` (if enabled)
 
@@ -136,7 +136,7 @@ Services are configured with appropriate resource limits:
    ```bash
    # Ensure credential files are readable
    chmod 644 livestream-link-monitor/credentials.json
-   chmod 644 livesheet-checker/creds.json
+   chmod 644 livesheet-updater/creds.json
    ```
 
 3. **Reset everything:**

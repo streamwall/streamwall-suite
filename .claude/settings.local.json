@@ -69,7 +69,13 @@
       "Bash(# Consolidate test files\ncd tests\nrm -f compatibility-test.sh  # Duplicate of test-compatibility.sh\nls -la)",
       "Bash(# Count markdown files to see the reduction\necho \"\"Total markdown files in project:\"\"\nfind . -name \"\"*.md\"\" -type f | grep -v node_modules | grep -v vendor | wc -l\n\necho -e \"\"\\nMain directory markdown files:\"\"\nls -1 *.md | sort)",
       "Bash(# Final cleanup\nrm -f SETUP.md README-simple.md\n\n# Count final markdown files\necho \"\"Final markdown file count:\"\"\nfind . -name \"\"*.md\"\" -type f | grep -v node_modules | grep -v vendor | wc -l\n\necho -e \"\"\\nMain directory markdown files:\"\"\nls -1 *.md 2>/dev/null | sort || echo \"\"No .md files in main directory\"\")",
-      "Bash(# Remove the cleanup summary (it was just for you to see what was done)\nrm -f CLEANUP-SUMMARY.md\n\n# Remove duplicate simple README\nrm -f README-simple.md\n\n# Remove duplicate SETUP.md\nrm -f SETUP.md\n\n# Remove test-tmp directory\nrm -rf test-tmp\n\necho \"\"Final cleanup complete!\"\")"
+      "Bash(# Remove the cleanup summary (it was just for you to see what was done)\nrm -f CLEANUP-SUMMARY.md\n\n# Remove duplicate simple README\nrm -f README-simple.md\n\n# Remove duplicate SETUP.md\nrm -f SETUP.md\n\n# Remove test-tmp directory\nrm -rf test-tmp\n\necho \"\"Final cleanup complete!\"\")",
+      "Bash(git config:*)",
+      "Bash(git mv:*)",
+      "Bash(./rename-submodule.sh)",
+      "Bash(sed:*)",
+      "Bash(./update-references.sh)",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }

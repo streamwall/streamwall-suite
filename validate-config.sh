@@ -196,7 +196,7 @@ main() {
     # Check for credential files
     if [ -n "$GOOGLE_SHEET_ID" ]; then
         check_file "$SCRIPT_DIR/livestream-link-monitor/creds.json" "Google credentials for livestream-monitor" false
-        check_file "$SCRIPT_DIR/livesheet-checker/creds.json" "Google credentials for livesheet-checker" false
+        check_file "$SCRIPT_DIR/livesheet-updater/creds.json" "Google credentials for livesheet-updater" false
     fi
     
     # Check submodules

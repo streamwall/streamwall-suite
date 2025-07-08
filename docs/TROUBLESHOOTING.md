@@ -200,7 +200,7 @@ This checks:
    ```bash
    # Verify file exists
    ls livestream-link-monitor/credentials.json
-   ls livesheet-checker/creds.json
+   ls livesheet-updater/creds.json
    
    # Validate JSON
    jq . livestream-link-monitor/credentials.json

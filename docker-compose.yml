@@ -122,17 +122,17 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Livesheet Checker - Stream status checker
-  livesheet-checker:
-    build: ./livesheet-checker
-    container_name: livesheet-checker
+  # Livesheet Updater - Stream status checker
+  livesheet-updater:
+    build: ./livesheet-updater
+    container_name: livesheet-updater
     restart: unless-stopped
     depends_on:
       streamsource:
         condition: service_healthy
     volumes:
-      - ./livesheet-checker/creds.json:/app/creds.json:ro
-      - ./livesheet-checker/logs:/app/logs
+      - ./livesheet-updater/creds.json:/app/creds.json:ro
+      - ./livesheet-updater/logs:/app/logs
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - TZ=${TZ:-UTC}
@@ -212,8 +212,8 @@ services:
       - AUTO_GENERATE_STREAMS=true
       - STREAM_GENERATION_INTERVAL=30000
 
-  livesheet-checker-demo:
-    extends: livesheet-checker
+  livesheet-updater-demo:
+    extends: livesheet-updater
     profiles: ["demo"]
     environment:
       - NODE_ENV=development

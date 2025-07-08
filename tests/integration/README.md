@@ -41,7 +41,7 @@ This directory contains comprehensive integration tests for the Streamwall ecosy
    - Platform-specific handling
    - Sync status monitoring
 
-6. **checker-to-streamsource.test.js** - Livesheet Checker ↔ StreamSource synchronization
+6. **checker-to-streamsource.test.js** - Livesheet Updater ↔ StreamSource synchronization
    - Stream addition and sync
    - Status updates propagation
    - Bulk checking operations
@@ -98,7 +98,7 @@ The tests use mock implementations of services to ensure:
 Key mock services:
 - `MockLivestreamMonitor` - Simulates livestream-link-monitor
 - `MockStreamSourceAPI` - Simulates StreamSource Rails API
-- `MockLivesheetChecker` - Simulates livesheet-checker
+- `MockLivesheetChecker` - Simulates livesheet-updater
 - `MockActionCableServer` - Simulates WebSocket server
 
 ### Test Helpers

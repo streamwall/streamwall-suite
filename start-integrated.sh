@@ -55,7 +55,7 @@ fi
 
 # Start monitor services
 echo -e "${YELLOW}Starting monitor services...${NC}"
-docker compose up -d livestream-monitor livesheet-checker
+docker compose up -d livestream-monitor livesheet-updater
 
 # Optional: Start Streamwall desktop
 read -p "Start Streamwall desktop app? (y/N) " -n 1 -r

@@ -23,7 +23,7 @@ This will:
 
 All services are **pre-configured to work together** out of the box:
 - **livestream-monitor** → Sends discovered streams to StreamSource API
-- **livesheet-checker** → Updates stream status in StreamSource API  
+- **livesheet-updater** → Updates stream status in StreamSource API  
 - **Streamwall desktop** → Fetches and displays streams from StreamSource API
 
 No manual configuration needed - it just works! 🎊

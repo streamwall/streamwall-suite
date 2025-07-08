@@ -11,7 +11,7 @@ This document describes how services in the Streamwall ecosystem communicate wit
 └─────────────────────┘                     └──────────┬──────────┘
                                                        │
 ┌─────────────────────┐     HTTP/REST                  │ WebSocket
-│  livesheet-checker  │ ─────────────────►             │ ActionCable
+│  livesheet-updater  │ ─────────────────►             │ ActionCable
 └─────────────────────┘                                │
                                                        ▼
 ┌─────────────────────┐     HTTP/REST      ┌─────────────────────┐
@@ -76,7 +76,7 @@ When the monitor detects a URL that already exists:
 3. **StreamSource returns existing stream or creates new**
 4. **Monitor updates local cache**
 
-### 2. Livesheet Checker → StreamSource
+### 2. Livesheet Updater → StreamSource
 
 **Protocol**: HTTP/REST  
 **Authentication**: Bearer token (API key)  

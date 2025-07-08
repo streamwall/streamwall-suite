@@ -44,7 +44,7 @@ The Streamwall ecosystem follows a microservices architecture pattern where each
         ┌───────────┴────────────┬──────────────┴──────────────┐
         │                        │                              │
 ┌───────┴──────────────┐ ┌──────┴──────────────┐  ┌───────────┴───────────┐
-│ livestream-link-     │ │  livesheet-checker  │  │  External Services    │
+│ livestream-link-     │ │  livesheet-updater  │  │  External Services    │
 │ monitor              │ │                     │  │                       │
 │                      │ │ • Status checking   │  │  • Discord API        │
 │ • Discord bot        │ │ • Google Sheets     │  │  • Twitch API         │
@@ -106,7 +106,7 @@ livestream-link-monitor/
 └── config/                # Configuration files
 ```
 
-### 3. Livesheet Checker
+### 3. Livesheet Updater
 
 **Technology**: Node.js, Google Sheets API
 
@@ -119,7 +119,7 @@ livestream-link-monitor/
 
 **Key Components**:
 ```
-livesheet-checker/
+livesheet-updater/
 ├── src/
 │   ├── checker/           # Stream checking logic
 │   ├── sheets/            # Google Sheets integration
@@ -173,7 +173,7 @@ streamwall/
 ### Status Update Flow
 
 ```
-1. livesheet-checker periodic check triggered
+1. livesheet-updater periodic check triggered
    ↓
 2. Check stream status via platform API
    ↓
@@ -193,7 +193,7 @@ streamwall/
 **REST API** (HTTP/HTTPS):
 - Client → StreamSource API
 - livestream-link-monitor → StreamSource API
-- livesheet-checker → StreamSource API
+- livesheet-updater → StreamSource API
 - Streamwall → StreamSource API
 
 ### Asynchronous Communication
@@ -257,7 +257,7 @@ streamwall/
 **Stateless Services**:
 - StreamSource API (multiple instances)
 - livestream-link-monitor (multiple bots)
-- livesheet-checker (distributed checking)
+- livesheet-updater (distributed checking)
 
 **Load Balancing**:
 ```
@@ -302,7 +302,7 @@ docker-compose.yml
 ├── redis:7
 ├── streamsource
 ├── livestream-monitor
-└── livesheet-checker
+└── livesheet-updater
 ```
 
 ### Production Environment

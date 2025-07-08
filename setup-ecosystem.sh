@@ -69,18 +69,18 @@ else
     echo "✅ livestream-link-monitor/credentials.json exists"
 fi
 
-# livesheet-checker credentials
-if [ ! -f livesheet-checker/creds.json ]; then
-    if [ -f livesheet-checker/creds.example.json ]; then
-        echo "📝 Creating livesheet-checker/creds.json from example..."
-        cp livesheet-checker/creds.example.json livesheet-checker/creds.json
-        echo "⚠️  Please update livesheet-checker/creds.json with your Google service account"
+# livesheet-updater credentials
+if [ ! -f livesheet-updater/creds.json ]; then
+    if [ -f livesheet-updater/creds.example.json ]; then
+        echo "📝 Creating livesheet-updater/creds.json from example..."
+        cp livesheet-updater/creds.example.json livesheet-updater/creds.json
+        echo "⚠️  Please update livesheet-updater/creds.json with your Google service account"
     else
-        echo "⚠️  Missing: livesheet-checker/creds.json"
+        echo "⚠️  Missing: livesheet-updater/creds.json"
         echo "   Please add your Google service account credentials"
     fi
 else
-    echo "✅ livesheet-checker/creds.json exists"
+    echo "✅ livesheet-updater/creds.json exists"
 fi
 
 # StreamSource .env

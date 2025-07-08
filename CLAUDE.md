@@ -5,7 +5,7 @@
 ```
 Discord/Twitch → Monitor → StreamSource API → Streamwall Display
                              ↑
-                    Livesheet Checker
+                    Livesheet Updater
 ```
 
 ### Core Services
@@ -26,7 +26,7 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 - **Features**: Platform detection, location parsing, rate limiting, deduplication
 - **Repository**: [github.com/streamwall/livestream-link-monitor](https://github.com/streamwall/livestream-link-monitor)
 
-#### 3. **livesheet-checker/** (Node.js Service) 
+#### 3. **livesheet-updater/** (Node.js Service) 
 - **Purpose**: Monitors Google Sheets for stream status and updates
 - **Technology**: Node.js, Google Sheets API
 - **Role**: Bridge between Google Sheets and stream monitoring
@@ -54,7 +54,7 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 
 #### 2. **Google Sheets as Backup/Legacy**
 - livestream-link-monitor supports dual-write mode
-- livesheet-checker provides Google Sheets monitoring
+- livesheet-updater provides Google Sheets monitoring
 - Supports migration from Sheets-based to API-based workflows
 
 #### 3. **Event-Driven Architecture**
@@ -113,7 +113,7 @@ describe('Data Consistency Across Services', () => {
   it('should maintain consistency between Google Sheets and StreamSource', async () => {
     // 1. Add stream via livestream-link-monitor (dual-write mode)
     // 2. Verify data exists in both Google Sheets and StreamSource
-    // 3. Update stream status via livesheet-checker
+    // 3. Update stream status via livesheet-updater
     // 4. Verify updates propagate to StreamSource
     // 5. Verify Streamwall reflects updated status
   });
@@ -156,7 +156,7 @@ describe('Security Integration', () => {
 - **Test**: Duplicate detection across backends
 - **Test**: Rate limiting and spam protection
 
-#### livesheet-checker → Google Sheets
+#### livesheet-updater → Google Sheets
 - **Test**: Sheet format compatibility
 - **Test**: Batch update performance
 - **Test**: Error handling for invalid data
@@ -202,7 +202,7 @@ git commit -m "Update streamsource submodule"
 2. **Redis** (required for StreamSource WebSocket and caching)
 3. **PostgreSQL** (required for StreamSource data storage)
 4. **livestream-link-monitor** (optional - for automated discovery)
-5. **livesheet-checker** (optional - for Sheets monitoring)
+5. **livesheet-updater** (optional - for Sheets monitoring)
 6. **Streamwall** (depends on stream data from other services)
 
 ### Development Environment Setup
@@ -215,7 +215,7 @@ docker compose up -d
 cd ../livestream-link-monitor
 docker compose up -d
 
-cd ../livesheet-checker
+cd ../livesheet-updater
 docker compose up -d
 
 # 3. Start Streamwall
@@ -287,7 +287,7 @@ Services communicate via direct HTTP calls in development. For production:
 #### Service Health
 - StreamSource API uptime and response times
 - livestream-link-monitor processing rate
-- livesheet-checker update frequency
+- livesheet-updater update frequency
 - Streamwall connection success rate
 
 ### Logging Strategy
@@ -322,8 +322,8 @@ services:
     build: ./livestream-link-monitor
     depends_on: [streamsource]
     
-  livesheet-checker:
-    build: ./livesheet-checker
+  livesheet-updater:
+    build: ./livesheet-updater
     depends_on: [streamsource]
     
   streamwall:

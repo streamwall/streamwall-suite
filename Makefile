@@ -15,13 +15,13 @@ WHITE := \033[37m
 
 # Service directories
 MONITOR_DIR := livestream-link-monitor
-CHECKER_DIR := livesheet-checker
+UPDATER_DIR := livesheet-updater
 SOURCE_DIR := streamsource
 WALL_DIR := streamwall
 
 # Check which services exist
 HAS_MONITOR := $(shell test -d $(MONITOR_DIR) && echo 1)
-HAS_CHECKER := $(shell test -d $(CHECKER_DIR) && echo 1)
+HAS_UPDATER := $(shell test -d $(UPDATER_DIR) && echo 1)
 HAS_SOURCE := $(shell test -d $(SOURCE_DIR) && echo 1)
 HAS_WALL := $(shell test -d $(WALL_DIR) && echo 1)
 
@@ -87,7 +87,7 @@ reconfigure: ## Reconfigure all services
 .PHONY: configure-service
 configure-service: ## Configure specific service (use with SERVICE=name)
 ifndef SERVICE
-	@echo "$(RED)Please specify SERVICE=streamsource|livestream-monitor|livesheet-checker|streamwall$(RESET)"
+	@echo "$(RED)Please specify SERVICE=streamsource|livestream-monitor|livesheet-updater|streamwall$(RESET)"
 else
 	@./setup-wizard.sh --service $(SERVICE)
 endif
@@ -113,9 +113,9 @@ ifdef HAS_MONITOR
 	@echo "$(YELLOW)Setting up livestream-link-monitor...$(RESET)"
 	@cd $(MONITOR_DIR) && make setup
 endif
-ifdef HAS_CHECKER
-	@echo "$(YELLOW)Setting up livesheet-checker...$(RESET)"
-	@cd $(CHECKER_DIR) && npm install
+ifdef HAS_UPDATER
+	@echo "$(YELLOW)Setting up livesheet-updater...$(RESET)"
+	@cd $(UPDATER_DIR) && npm install
 endif
 ifdef HAS_SOURCE
 	@echo "$(YELLOW)Setting up streamsource...$(RESET)"
@@ -173,12 +173,12 @@ else
 endif
 
 .PHONY: dev-checker
-dev-checker: ## Start livesheet-checker only
-ifdef HAS_CHECKER
-	@echo "$(YELLOW)Starting livesheet-checker...$(RESET)"
-	@cd $(CHECKER_DIR) && docker-compose up
+dev-checker: ## Start livesheet-updater only
+ifdef HAS_UPDATER
+	@echo "$(YELLOW)Starting livesheet-updater...$(RESET)"
+	@cd $(UPDATER_DIR) && docker-compose up
 else
-	@echo "$(RED)livesheet-checker not found$(RESET)"
+	@echo "$(RED)livesheet-updater not found$(RESET)"
 endif
 
 .PHONY: dev-source
@@ -219,8 +219,8 @@ up-legacy: ## Start all services using individual docker-compose files (legacy)
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose up -d
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose up -d
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose up -d
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose up -d
@@ -242,8 +242,8 @@ down-legacy: ## Stop all services using individual docker-compose files (legacy)
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose down
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose down
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose down
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose down
@@ -267,9 +267,9 @@ ifdef HAS_MONITOR
 	@echo -n "$(CYAN)livestream-link-monitor:$(RESET) "
 	@cd $(MONITOR_DIR) && docker-compose ps --quiet livestream-link-monitor > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
 endif
-ifdef HAS_CHECKER
-	@echo -n "$(CYAN)livesheet-checker:$(RESET) "
-	@cd $(CHECKER_DIR) && docker-compose ps --quiet livesheet-checker > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
+ifdef HAS_UPDATER
+	@echo -n "$(CYAN)livesheet-updater:$(RESET) "
+	@cd $(UPDATER_DIR) && docker-compose ps --quiet livesheet-updater > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
 endif
 ifdef HAS_SOURCE
 	@echo -n "$(CYAN)streamsource:$(RESET) "
@@ -293,8 +293,8 @@ logs-legacy: ## Show logs from all services using individual docker-compose file
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose logs -f livestream-link-monitor &
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose logs -f livesheet-checker &
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose logs -f livesheet-updater &
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose logs -f &
@@ -307,10 +307,10 @@ ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose logs -f livestream-link-monitor
 endif
 
-.PHONY: logs-checker
-logs-checker: ## Show livesheet-checker logs
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose logs -f livesheet-checker
+.PHONY: logs-updater
+logs-updater: ## Show livesheet-updater logs
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose logs -f livesheet-updater
 endif
 
 .PHONY: logs-source
@@ -384,8 +384,8 @@ clean: ## Clean build artifacts and dependencies
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && make clean
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && rm -rf node_modules
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && rm -rf node_modules
 endif
 ifdef HAS_WALL
 	@cd $(WALL_DIR) && npm run clean
@@ -400,8 +400,8 @@ update-deps: ## Update dependencies for all services
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && npm update
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && npm update
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && npm update
 endif
 ifdef HAS_WALL
 	@cd $(WALL_DIR) && npm update
@@ -436,8 +436,8 @@ build-legacy: ## Build Docker images using individual docker-compose files (lega
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose build
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose build
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose build
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose build
@@ -449,8 +449,8 @@ pull: ## Pull latest Docker images
 ifdef HAS_MONITOR
 	@cd $(MONITOR_DIR) && docker-compose pull
 endif
-ifdef HAS_CHECKER
-	@cd $(CHECKER_DIR) && docker-compose pull
+ifdef HAS_UPDATER
+	@cd $(UPDATER_DIR) && docker-compose pull
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose pull
@@ -510,7 +510,7 @@ doctor: ## Diagnose common issues
 	@echo ""
 	@echo "$(CYAN)Checking service directories:$(RESET)"
 	@test -d $(MONITOR_DIR) && echo "✓ $(MONITOR_DIR) exists" || echo "✗ $(MONITOR_DIR) missing"
-	@test -d $(CHECKER_DIR) && echo "✓ $(CHECKER_DIR) exists" || echo "✗ $(CHECKER_DIR) missing"
+	@test -d $(UPDATER_DIR) && echo "✓ $(UPDATER_DIR) exists" || echo "✗ $(UPDATER_DIR) missing"
 	@test -d $(SOURCE_DIR) && echo "✓ $(SOURCE_DIR) exists" || echo "✗ $(SOURCE_DIR) missing"
 	@test -d $(WALL_DIR) && echo "✓ $(WALL_DIR) exists" || echo "✗ $(WALL_DIR) missing"
 	@echo ""
@@ -535,9 +535,9 @@ ifdef HAS_MONITOR
 	@echo "$(CYAN)livestream-link-monitor:$(RESET)"
 	@test -f $(MONITOR_DIR)/.env && echo "✓ .env file exists" || echo "✗ .env file missing"
 endif
-ifdef HAS_CHECKER
-	@echo "$(CYAN)livesheet-checker:$(RESET)"
-	@test -f $(CHECKER_DIR)/creds.json && echo "✓ creds.json exists" || echo "✗ creds.json missing"
+ifdef HAS_UPDATER
+	@echo "$(CYAN)livesheet-updater:$(RESET)"
+	@test -f $(UPDATER_DIR)/creds.json && echo "✓ creds.json exists" || echo "✗ creds.json missing"
 endif
 ifdef HAS_SOURCE
 	@echo "$(CYAN)streamsource:$(RESET)"

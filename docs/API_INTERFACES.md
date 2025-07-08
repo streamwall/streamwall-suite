@@ -5,7 +5,7 @@ This document details all API endpoints and interfaces between services in the S
 ## Table of Contents
 - [StreamSource API](#streamsource-api)
 - [Livestream Monitor API](#livestream-monitor-api)
-- [Livesheet Checker API](#livesheet-checker-api)
+- [Livesheet Updater API](#livesheet-updater-api)
 - [WebSocket/ActionCable Interfaces](#websocketactioncable-interfaces)
 - [Authentication](#authentication)
 - [Error Handling](#error-handling)
@@ -402,7 +402,7 @@ Response:
 }
 ```
 
-## Livesheet Checker API
+## Livesheet Updater API
 
 Base URL: `http://localhost:3002`
 

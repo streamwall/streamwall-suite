@@ -33,8 +33,8 @@ Welcome to the Streamwall ecosystem documentation. This directory contains compr
 - [Monitor README](../livestream-link-monitor/README.md) - Discord/Twitch bot documentation
 - [Monitor CLAUDE.md](../livestream-link-monitor/CLAUDE.md) - Service-specific AI context
 
-#### Livesheet Checker
-- [Checker README](../livesheet-checker/README.md) - Stream status checker documentation
+#### Livesheet Updater
+- [Checker README](../livesheet-updater/README.md) - Stream status checker documentation
 
 #### Streamwall Desktop
 - [Streamwall README](../streamwall/README.md) - Electron app documentation
