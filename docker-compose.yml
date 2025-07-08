@@ -1,5 +1,16 @@
 # Streamwall Ecosystem Docker Compose
 # This file orchestrates all services in the Streamwall ecosystem
+#
+# Quick Start:
+#   1. Run ./setup-wizard.sh for interactive setup
+#   2. Or copy .env.example to .env and run: docker compose up -d
+#
+# Service URLs:
+#   - StreamSource API: http://localhost:3000
+#   - PostgreSQL: localhost:5432
+#   - Redis: localhost:6379
+
+version: '3.8'
 
 services:
   # PostgreSQL Database (for StreamSource)
@@ -8,15 +19,15 @@ services:
     container_name: streamwall-postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-streamsource}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-streamsource_password}
-      - POSTGRES_DB=${POSTGRES_DB:-streamsource_development}
+      - POSTGRES_USER=${POSTGRES_USER:-streamwall}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-streamwall_dev_password_change_in_production}
+      - POSTGRES_DB=${POSTGRES_DB:-streamwall_development}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streamsource} -d ${POSTGRES_DB:-streamsource_development}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streamwall} -d ${POSTGRES_DB:-streamwall_development}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -45,10 +56,12 @@ services:
       - "${STREAMSOURCE_PORT:-3000}:3000"
     environment:
       - RAILS_ENV=${RAILS_ENV:-development}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-streamsource}:${POSTGRES_PASSWORD:-streamsource_password}@postgres:5432/${POSTGRES_DB:-streamsource_development}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-your_secret_key_base_here}
-      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-streamwall}:${POSTGRES_PASSWORD:-streamwall_dev_password_change_in_production}@postgres:5432/${POSTGRES_DB:-streamwall_development}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-development_secret_key_base_change_in_production_minimum_30_chars}
+      - JWT_SECRET=${JWT_SECRET:-development_jwt_secret_change_in_production_minimum_30_chars}
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
+      - RAILS_LOG_TO_STDOUT=true
       - BUNDLE_WITHOUT=""
     depends_on:
       postgres:
@@ -72,28 +85,33 @@ services:
     container_name: livestream-monitor
     restart: unless-stopped
     depends_on:
-      - streamsource
+      streamsource:
+        condition: service_healthy
     volumes:
-      - ./livestream-link-monitor/credentials.json:/app/credentials.json:ro
+      - ./livestream-link-monitor/creds.json:/app/creds.json:ro
       - ./livestream-link-monitor/logs:/app/logs
     environment:
-      - NODE_ENV=production
-      - TZ=America/Los_Angeles
-      - PORT=3001
-      # Discord/Twitch configuration
-      - DISCORD_TOKEN=${DISCORD_TOKEN:-your_discord_bot_token_here}
-      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID:-your_discord_channel_id_here}
-      - TWITCH_CHANNEL=${TWITCH_CHANNEL:-channel_name_without_hash}
-      # Google Sheets configuration
-      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-your_google_sheet_id_here}
-      - GOOGLE_CREDENTIALS_PATH=/app/credentials.json
-      # StreamSource API integration
-      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-your_api_key_here}
+      - NODE_ENV=${NODE_ENV:-development}
+      - TZ=${TZ:-UTC}
+      - PORT=${LIVESTREAM_MONITOR_PORT:-3001}
+      # Discord/Twitch configuration (optional)
+      - DISCORD_TOKEN=${DISCORD_TOKEN:-}
+      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID:-}
+      - TWITCH_CHANNEL=${TWITCH_CHANNEL:-}
+      # Google Sheets configuration (optional)
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-}
+      - GOOGLE_CREDENTIALS_PATH=/app/creds.json
+      # StreamSource API integration (default backend)
+      - BACKEND_TYPE=${BACKEND_TYPE:-streamsource}
+      - BACKEND_MODE=${BACKEND_MODE:-single}
+      - BACKEND_PRIMARY=${BACKEND_PRIMARY:-streamSource}
+      - BACKEND_STREAMSOURCE_ENABLED=${BACKEND_STREAMSOURCE_ENABLED:-true}
+      - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
     ports:
-      - "3001:3001"  # Health check endpoint
+      - "${LIVESTREAM_MONITOR_PORT:-3001}:${LIVESTREAM_MONITOR_PORT:-3001}"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${LIVESTREAM_MONITOR_PORT:-3001}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -109,16 +127,101 @@ services:
     build: ./livesheet-checker
     container_name: livesheet-checker
     restart: unless-stopped
+    depends_on:
+      streamsource:
+        condition: service_healthy
     volumes:
       - ./livesheet-checker/creds.json:/app/creds.json:ro
+      - ./livesheet-checker/logs:/app/logs
     environment:
-      - NODE_ENV=production
-      - TZ=America/Los_Angeles
+      - NODE_ENV=${NODE_ENV:-development}
+      - TZ=${TZ:-UTC}
+      # Google Sheets configuration
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-}
+      - GOOGLE_CREDENTIALS_PATH=/app/creds.json
+      # Optional StreamSource integration
+      - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Optional: Streamwall Desktop App (Electron)
+  # To include this service, run: docker compose --profile desktop up
+  streamwall:
+    build: ./streamwall
+    container_name: streamwall-app
+    profiles: ["desktop", "full"]
+    restart: unless-stopped
+    depends_on:
+      streamsource:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - STREAM_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
+      - STREAMWALL_WEB_PORT=${STREAMWALL_WEB_PORT:-8080}
+      - STREAMWALL_CONFIG_FILE=${STREAMWALL_CONFIG_FILE:-./config.development.toml}
+    ports:
+      - "${STREAMWALL_WEB_PORT:-8080}:8080"
+    volumes:
+      - ./streamwall:/app:cached
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Demo Mode Services
+  # These extend the base services with demo-specific configurations
+  streamsource-demo:
+    extends: streamsource
+    profiles: ["demo"]
+    environment:
+      - RAILS_ENV=development
+      - NODE_ENV=development
+      - DEMO_MODE=true
+      - DISABLE_AUTH=true
+      - AUTO_SEED=true
+      - DATABASE_URL=postgresql://streamwall:demo_password@postgres:5432/streamwall_demo
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-demo_secret_key_not_for_production}
+      - JWT_SECRET=${JWT_SECRET:-demo_jwt_secret_not_for_production}
+      - ENABLE_DEMO_STREAMS=true
+
+  livestream-monitor-demo:
+    extends: livestream-monitor
+    profiles: ["demo"]
+    environment:
+      - NODE_ENV=development
+      - DEMO_MODE=true
+      - MOCK_DISCORD=true
+      - MOCK_TWITCH=true
+      - DISCORD_TOKEN=demo_discord_token
+      - DISCORD_CHANNEL_ID=123456789012345678
+      - TWITCH_CHANNEL=demo_channel
+      - BACKEND_TYPE=streamsource
+      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
+      - AUTO_GENERATE_STREAMS=true
+      - STREAM_GENERATION_INTERVAL=30000
+
+  livesheet-checker-demo:
+    extends: livesheet-checker
+    profiles: ["demo"]
+    environment:
+      - NODE_ENV=development
+      - DEMO_MODE=true
+      - MOCK_GOOGLE_SHEETS=true
+      - CHECK_INTERVAL=10000
+      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
+      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
 
 # Networks
 networks:

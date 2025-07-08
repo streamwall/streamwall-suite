@@ -49,7 +49,27 @@
       "Bash(gh repo view:*)",
       "Bash(gh api:*)",
       "Bash(gh repo archive:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(./test-setup-wizard.sh:*)",
+      "Bash(bash:*)",
+      "Bash(bats:*)",
+      "Bash(shellcheck:*)",
+      "Bash(# Fix all read commands to use -r flag\nsed -i.bak ''s/read -p/read -r -p/g'' setup-wizard.sh\nsed -i.bak ''s/read -s -p/read -rs -p/g'' setup-wizard.sh\n# Fix any standalone read commands\nsed -i.bak ''s/^[[:space:]]*read[[:space:]]/    read -r /g'' setup-wizard.sh\nrm setup-wizard.sh.bak\n\necho \"\"Fixed read commands\"\")",
+      "Bash(# Fix double -r flags\nsed -i ''s/read -r -r/read -r/g'' setup-wizard.sh\necho \"\"Fixed double -r flags\"\")",
+      "Bash(# Fix double -r flags with proper escaping\nsed -i '''' ''s/read -r -r/read -r/g'' setup-wizard.sh\necho \"\"Fixed double -r flags\"\")",
+      "Bash(./tests/compatibility-test.sh:*)",
+      "Bash(# Count how many sed -i.bak instances we need to fix\ngrep -n \"\"sed -i.bak\"\" setup-wizard.sh | head -10)",
+      "Bash(# Replace all sed -i.bak with sed_inplace and remove .bak cleanup\nperl -i -pe ''\n    s/sed -i\\.bak (\"\"s\\|[^|]+\\|[^|]+\\|\"\") \"\"(\\$[^\"\"]+)\"\"/sed_inplace \"\"$2\"\" $1/g;\n    s/rm -f \"\"\\$ENV_FILE\\.bak\"\"//g;\n'' setup-wizard.sh\n\necho \"\"Replaced sed commands\"\")",
+      "Bash(# Remove remaining .bak cleanup lines\nsed -i '''' ''/rm -f.*\\.bak/d'' setup-wizard.sh\necho \"\"Removed .bak cleanup lines\"\")",
+      "Bash(# Fix remaining sed -i.bak instances\nperl -i -pe ''s/sed -i\\.bak/sed_inplace/g'' setup-wizard.sh\necho \"\"Fixed remaining sed instances\"\")",
+      "Bash(./test-compatibility.sh:*)",
+      "Bash(# Run comprehensive compatibility check\necho \"\"=== Comprehensive Compatibility Test ===\"\"\necho\n\n# 1. Check setup wizard runs\necho -n \"\"1. Setup wizard runs without errors... \"\"\nif bash setup-wizard.sh --help >/dev/null 2>&1; then\n    echo \"\"✓\"\"\nelse\n    echo \"\"✗\"\"\nfi\n\n# 2. Check platform detection\necho -n \"\"2. Platform detection works... \"\"\nPLATFORM=$(bash -c ''\n    if [[ \"\"$OSTYPE\"\" == \"\"darwin\"\"* ]]; then\n        echo \"\"macos\"\"\n    elif [[ \"\"$OSTYPE\"\" == \"\"linux-gnu\"\"* ]]; then\n        echo \"\"linux\"\"\n    else\n        echo \"\"unknown\"\"\n    fi\n'')\necho \"\"✓ (detected: $PLATFORM)\"\"\n\n# 3. Check sed compatibility\necho -n \"\"3. Cross-platform sed function... \"\"\nif grep -q \"\"sed_inplace\"\" setup-wizard.sh; then\n    echo \"\"✓\"\"\nelse\n    echo \"\"✗\"\"\nfi\n\n# 4. Check for problematic syntax\necho -n \"\"4. No bash-specific uppercase syntax... \"\"\nif grep -q ''\\${[^}]*^^}'' setup-wizard.sh; then\n    echo \"\"✗ (found ${var^^} syntax)\"\"\nelse\n    echo \"\"✓\"\"\nfi\n\n# 5. Check read commands have -r flag\necho -n \"\"5. All read commands use -r flag... \"\"\nBAD_READS=$(grep -E ''^\\s*read[[:space:]]+[^-]|^\\s*read$'' setup-wizard.sh | grep -v \"\"read -r\"\" | wc -l)\nif [ \"\"$BAD_READS\"\" -eq 0 ]; then\n    echo \"\"✓\"\"\nelse\n    echo \"\"✗ ($BAD_READS instances without -r)\"\"\nfi\n\necho\necho \"\"=== Test Complete ===\"\")",
+      "Bash(# Remove test results and temporary files\nrm -f test-results-summary.md improvements-summary.md test-compatibility.sh test-setup-wizard.sh setup-wizard-compat.sh setup-wizard-final.patch\n\n# Remove duplicate migration docs\nrm -f REPOSITORY_MIGRATION_STEPS.md CHANGES_SUMMARY.md\n\necho \"\"Removed temporary and redundant files\"\")",
+      "Bash(# Replace the complex README with the simple one\nmv README-simple.md README.md\necho \"\"Simplified main README\"\")",
+      "Bash(# Consolidate test files\ncd tests\nrm -f compatibility-test.sh  # Duplicate of test-compatibility.sh\nls -la)",
+      "Bash(# Count markdown files to see the reduction\necho \"\"Total markdown files in project:\"\"\nfind . -name \"\"*.md\"\" -type f | grep -v node_modules | grep -v vendor | wc -l\n\necho -e \"\"\\nMain directory markdown files:\"\"\nls -1 *.md | sort)",
+      "Bash(# Final cleanup\nrm -f SETUP.md README-simple.md\n\n# Count final markdown files\necho \"\"Final markdown file count:\"\"\nfind . -name \"\"*.md\"\" -type f | grep -v node_modules | grep -v vendor | wc -l\n\necho -e \"\"\\nMain directory markdown files:\"\"\nls -1 *.md 2>/dev/null | sort || echo \"\"No .md files in main directory\"\")",
+      "Bash(# Remove the cleanup summary (it was just for you to see what was done)\nrm -f CLEANUP-SUMMARY.md\n\n# Remove duplicate simple README\nrm -f README-simple.md\n\n# Remove duplicate SETUP.md\nrm -f SETUP.md\n\n# Remove test-tmp directory\nrm -rf test-tmp\n\necho \"\"Final cleanup complete!\"\")"
     ],
     "deny": []
   }

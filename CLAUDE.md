@@ -1,17 +1,11 @@
-# Streamwall Services Integration - CLAUDE.md
+# Streamwall Technical Documentation
 
-## Overview
+## Architecture
 
-This repository is a **meta-repository** that orchestrates the Streamwall ecosystem: a collection of microservices that work together to provide comprehensive livestream management, monitoring, and display capabilities. Each service is maintained in its own repository and included here as a Git submodule, providing a unified interface for development and deployment while maintaining clean separation of concerns.
-
-The architecture follows a service-oriented design where each service has a specific responsibility in the overall workflow.
-
-## Service Architecture
-
-### Data Flow
 ```
-External Sources → livestream-link-monitor → StreamSource API → Streamwall Display
-                 ↘ livesheet-checker ↗
+Discord/Twitch → Monitor → StreamSource API → Streamwall Display
+                             ↑
+                    Livesheet Checker
 ```
 
 ### Core Services

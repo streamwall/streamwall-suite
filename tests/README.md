@@ -1,226 +1,222 @@
-# Streamwall Ecosystem Integration Tests
+# Testing the Setup Wizard
 
-This directory contains integration and end-to-end tests for the Streamwall ecosystem.
+This directory contains comprehensive tests for the Streamwall setup wizard and related scripts.
 
-## Test Structure
+## Test Suites
 
-```
-tests/
-├── integration/          # Integration tests between services
-│   ├── stream-discovery.test.js    # Discord → Monitor → Storage
-│   ├── service-communication.test.js # Inter-service communication
-│   └── end-to-end.test.js         # Complete flow tests
-├── e2e/                 # End-to-end tests (future)
-├── helpers/             # Test utilities
-│   ├── services.js      # Service management helpers
-│   └── test-data.js     # Test data generators
-├── setup.js             # Global test setup
-└── teardown.js          # Global test teardown
-```
+### 1. Basic Shell Tests (`test-setup-wizard.sh`)
+A custom test framework that tests individual functions in isolation:
+- Color output functions
+- Secret generation
+- Environment file creation
+- Directory creation
+- Command-line argument parsing
+- Menu navigation
+- Service configuration
 
-## Running Tests
+### 2. BATS Tests (`setup-wizard.bats`)
+Industry-standard Bash Automated Testing System tests:
+- Help message display
+- Invalid argument handling
+- Environment setup
+- Backup creation
+- Service-specific configuration
+- Integration configuration
+- Email validation
+- Discord setup flow
+- Docker compose compatibility
 
-### Prerequisites
+### 3. ShellCheck Linting
+Static analysis for shell scripts to catch common issues:
+- Syntax errors
+- Security issues
+- Portability problems
+- Best practice violations
 
-1. Docker must be installed and running
-2. Node.js 18+ required
-3. Services should have their `.env` files configured
+## Running Tests Locally
 
-### Setup
-
+### Quick Test
 ```bash
-# Install dependencies
-npm install
-
-# Or use Make
-make setup-integration
+# Run all available tests
+make test-setup-wizard
 ```
 
-### Running All Tests
+### Individual Test Suites
 
+#### Basic Tests
 ```bash
-# Using npm
-npm test
-
-# Using Make
-make test-integration
-
-# With coverage
-npm run test:coverage
+./test-setup-wizard.sh
 ```
 
-### Running Specific Test Suites
-
+#### BATS Tests
 ```bash
-# Integration tests only
-npm run test:integration
+# Install BATS first
+npm install -g bats
 
-# E2E tests only
-npm run test:e2e
-
-# Watch mode for development
-npm run test:watch
+# Run BATS tests
+bats tests/setup-wizard.bats
 ```
 
-### Running Individual Tests
-
+#### ShellCheck
 ```bash
-# Run a specific test file
-npm test stream-discovery
+# Install ShellCheck
+# macOS: brew install shellcheck
+# Ubuntu: apt-get install shellcheck
 
-# Run tests matching a pattern
-npm test -- --testNamePattern="Discord"
-```
-
-## Test Categories
-
-### 1. Stream Discovery Tests
-Tests the flow of stream URL discovery from Discord/Twitch through the livestream-link-monitor service.
-
-**What it tests:**
-- URL detection from messages
-- Platform identification
-- Location parsing
-- Duplicate detection
-- Rate limiting
-- Error handling
-
-### 2. Service Communication Tests
-Tests how services communicate and maintain data consistency.
-
-**What it tests:**
-- Data consistency across backends
-- WebSocket real-time updates
-- Service failover and recovery
-- Authentication and authorization
-- Rate limiting across services
-
-### 3. End-to-End Tests
-Tests the complete flow from stream discovery to display.
-
-**What it tests:**
-- Full pipeline from Discord to Streamwall
-- Multi-service coordination
-- Performance under load
-- Error recovery
-- System resilience
-
-## Environment Variables
-
-Tests use the following environment variables:
-
-```bash
-# Service URLs
-MONITOR_HEALTH_URL=http://localhost:3001/health
-DISCORD_WEBHOOK_URL=http://localhost:3001/webhook/discord
-STREAMSOURCE_API_URL=http://localhost:3000/api/v1
-
-# Test configuration
-INTEGRATION_TEST=true
-NODE_ENV=test
+# Run linting
+shellcheck setup-wizard.sh validate-config.sh
 ```
 
 ## Writing New Tests
 
-### Test Structure
-
-```javascript
-describe('Feature Being Tested', () => {
-  beforeAll(async () => {
-    // Start required services
-    await startService('service-name');
-    await waitForService('http://localhost:port/health');
-  });
-
-  afterAll(async () => {
-    // Clean up
-    await stopService('service-name');
-  });
-
-  test('should do something specific', async () => {
-    // Arrange
-    const testData = generateTestData();
-
-    // Act
-    const result = await performAction(testData);
-
-    // Assert
-    expect(result).toMatchExpectedBehavior();
-  });
-});
+### BATS Test Structure
+```bash
+@test "description of what you're testing" {
+    # Arrange - set up test conditions
+    echo "TEST=value" > .env
+    
+    # Act - run the code being tested
+    run bash setup-wizard.sh --validate
+    
+    # Assert - check the results
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"expected text"* ]]
+}
 ```
 
-### Using Test Helpers
+### Mocking External Commands
+Tests use mocked versions of system commands to avoid side effects:
 
-```javascript
-const { startService, waitForService } = require('../helpers/services');
-const { generateTestStream, delay } = require('../helpers/test-data');
+```bash
+# Create mock docker command
+cat > mocks/docker << 'EOF'
+#!/bin/bash
+echo "MOCK_DOCKER: $@" >&2
+exit 0
+EOF
+chmod +x mocks/docker
+```
 
-// Start a service
-await startService('livestream-link-monitor');
+## Test Coverage
 
-// Wait for it to be ready
-await waitForService('http://localhost:3001/health');
+The test suite covers:
 
-// Generate test data
-const stream = generateTestStream({
-  platform: 'youtube',
-  status: 'live'
-});
+1. **Argument Parsing**
+   - Valid arguments (--full, --service, etc.)
+   - Invalid arguments
+   - Help display
 
-// Wait for async operations
-await delay(2000);
+2. **Environment Setup**
+   - .env file creation
+   - Secret generation
+   - Backup on reconfigure
+   - Directory creation
+
+3. **User Interactions**
+   - Menu navigation
+   - Input validation
+   - Email format checking
+   - Discord setup flow
+
+4. **Service Management**
+   - Individual service configuration
+   - Integration setup
+   - Docker compose compatibility
+
+5. **Error Handling**
+   - Missing files
+   - Invalid input
+   - Failed commands
+
+## CI/CD Integration
+
+Tests run automatically on:
+- Push to main branch
+- Pull requests
+- Changes to setup scripts
+
+GitHub Actions workflow runs:
+1. Basic shell tests
+2. BATS tests
+3. ShellCheck linting
+4. Integration scenarios
+
+## Common Test Patterns
+
+### Testing Interactive Prompts
+```bash
+# Provide input via pipe
+echo -e "y\n1\nadmin@test.com\n" | bash setup-wizard.sh
+
+# Or use heredoc
+run_with_input() {
+    bash setup-wizard.sh <<EOF
+$1
+EOF
+}
+```
+
+### Testing File Creation
+```bash
+@test "creates required files" {
+    run bash setup-wizard.sh --full
+    
+    [ -f ".env" ]
+    [ -f "admin-credentials.txt" ]
+    [ -d "postgres-data" ]
+}
+```
+
+### Testing Command Output
+```bash
+@test "shows correct message" {
+    run bash setup-wizard.sh --help
+    
+    [[ "$output" == *"Streamwall Setup Wizard"* ]]
+    [[ "$output" == *"Usage:"* ]]
+}
 ```
 
 ## Debugging Tests
 
-### View Service Logs
-
+### Run with verbose output
 ```bash
-# During test execution
-make logs-monitor
-make logs-checker
+# BATS verbose mode
+bats -v tests/setup-wizard.bats
 
-# Or check container logs directly
-docker logs livestream-link-monitor
+# Basic tests with debug
+DEBUG=1 ./test-setup-wizard.sh
 ```
 
-### Run in Debug Mode
-
+### Print variables in tests
 ```bash
-# With Node.js debugging
-node --inspect-brk ./node_modules/.bin/jest --runInBand
-
-# With verbose output
-npm test -- --verbose
+@test "debug example" {
+    echo "Variable value: $MY_VAR" >&3
+    run my_command
+    echo "Output: $output" >&3
+    echo "Status: $status" >&3
+}
 ```
 
-### Common Issues
+## Test Maintenance
 
-1. **Services not starting**: Check Docker is running and ports are available
-2. **Timeouts**: Increase test timeout in jest.config.js
-3. **Port conflicts**: Ensure ports 3000, 3001, etc. are not in use
-4. **Missing credentials**: Check service .env files and Google credentials
+When modifying `setup-wizard.sh`:
+1. Run the test suite to ensure nothing breaks
+2. Add new tests for new functionality
+3. Update mocks if new external commands are used
+4. Check test coverage for untested code paths
 
-## CI/CD Integration
+## Known Limitations
 
-To run tests in CI:
+1. **Docker Testing**: Tests use mocked Docker commands to avoid requiring Docker in CI
+2. **Network Operations**: External API calls are mocked
+3. **Time-based Operations**: Sleep commands are minimized or mocked
+4. **TTY Operations**: Some interactive features can't be fully tested in CI
 
-```yaml
-# Example GitHub Actions
-- name: Run Integration Tests
-  run: |
-    docker-compose up -d
-    npm test
-    docker-compose down
-```
+## Future Improvements
 
-## Best Practices
-
-1. **Isolate tests**: Each test should be independent
-2. **Clean up**: Always stop services in afterAll()
-3. **Use helpers**: Leverage test utilities for common operations
-4. **Mock external services**: When testing specific components
-5. **Descriptive names**: Test names should clearly state what they verify
-6. **Timeouts**: Set appropriate timeouts for async operations
-7. **Error handling**: Test both success and failure scenarios
+- [ ] Add code coverage reporting
+- [ ] Test timeout handling
+- [ ] Test signal handling (Ctrl+C)
+- [ ] Add performance benchmarks
+- [ ] Test concurrent execution scenarios

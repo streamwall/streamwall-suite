@@ -15,6 +15,7 @@ creds.json
 *.pem
 *.key
 *.cert
+admin-credentials.txt
 
 # Build outputs
 dist/
@@ -54,6 +55,9 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# Setup marker
+.setup-complete
 
 # Cache
 .cache/

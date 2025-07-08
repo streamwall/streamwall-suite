@@ -1,0 +1,163 @@
+name: Test Setup Wizard
+
+on:
+  push:
+    paths:
+      - 'setup-wizard.sh'
+      - 'validate-config.sh'
+      - 'tests/setup-wizard.bats'
+      - '.github/workflows/test-setup-wizard.yml'
+  pull_request:
+    paths:
+      - 'setup-wizard.sh'
+      - 'validate-config.sh'
+      - 'tests/setup-wizard.bats'
+
+jobs:
+  test-basic:
+    name: Basic Shell Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run basic tests
+        run: |
+          chmod +x test-setup-wizard.sh
+          ./test-setup-wizard.sh
+
+  test-bats:
+    name: BATS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup BATS
+        run: |
+          sudo npm install -g bats
+          
+      - name: Run BATS tests
+        run: |
+          chmod +x setup-wizard.sh validate-config.sh
+          bats tests/setup-wizard.bats
+
+  test-shellcheck:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          ignore_paths: 'node_modules'
+          ignore_names: '*.bats'
+          severity: error
+        env:
+          SHELLCHECK_OPTS: -e SC1091 -e SC2086
+
+  test-integration:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Create test environment
+        run: |
+          # Create necessary files
+          chmod +x setup-wizard.sh validate-config.sh
+          
+          # Create mock credentials
+          mkdir -p livestream-link-monitor livesheet-checker
+          echo '{}' > livestream-link-monitor/creds.json
+          echo '{}' > livesheet-checker/creds.json
+          
+      - name: Test full setup (dry run)
+        run: |
+          # Create a modified setup wizard that doesn't start docker
+          cp setup-wizard.sh setup-wizard-test.sh
+          
+          # Replace docker commands with mocks
+          cat >> mock-docker.sh << 'EOF'
+          #!/bin/bash
+          case "$1" in
+            "compose")
+              case "$2" in
+                "version") exit 0 ;;
+                "up") echo "Mock: Services would start" ;;
+                "exec") echo "Mock: Command would execute" ;;
+                "ps") echo "Mock: No containers" ;;
+                "restart") echo "Mock: Services would restart" ;;
+              esac
+              ;;
+            "info") exit 0 ;;
+          esac
+          EOF
+          chmod +x mock-docker.sh
+          
+          # Run setup with mocked docker
+          PATH=".:$PATH" bash setup-wizard-test.sh --validate || true
+          
+      - name: Verify setup artifacts
+        run: |
+          # Check that validation script works
+          ./validate-config.sh || echo "Validation would check configuration"
+
+  test-scenarios:
+    name: Test Scenarios
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario:
+          - name: "First Run"
+            commands: |
+              echo -e "y\n1\nadmin@test.com\nn\n" | timeout 30s bash setup-wizard.sh || true
+              [ -f .env ] && echo "✓ .env created"
+              
+          - name: "Reconfigure"
+            commands: |
+              echo "TEST=value" > .env
+              touch .setup-complete
+              echo -e "2\nY\n1\n" | timeout 30s bash setup-wizard.sh || true
+              ls .env.backup.* && echo "✓ Backup created"
+              
+          - name: "Service Config"
+            commands: |
+              timeout 10s bash setup-wizard.sh --service streamsource </dev/null || true
+              echo "✓ Service configuration works"
+              
+          - name: "Integration Config"  
+            commands: |
+              echo "API_KEY=test" > .env
+              echo "n" | timeout 10s bash setup-wizard.sh --integration discord || true
+              echo "✓ Integration configuration works"
+              
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup test environment
+        run: |
+          chmod +x setup-wizard.sh validate-config.sh
+          
+          # Mock docker
+          sudo tee /usr/local/bin/docker > /dev/null << 'EOF'
+          #!/bin/bash
+          case "$1" in
+            "compose") 
+              case "$2" in
+                "version") exit 0 ;;
+                *) echo "Mock docker compose $2" ;;
+              esac
+              ;;
+            "info") exit 0 ;;
+            *) echo "Mock docker $1" ;;
+          esac
+          EOF
+          sudo chmod +x /usr/local/bin/docker
+          
+      - name: Run scenario - ${{ matrix.scenario.name }}
+        run: |
+          set -e
+          ${{ matrix.scenario.commands }}

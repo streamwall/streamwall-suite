@@ -38,6 +38,8 @@ help: ## Display this help
 	@echo "$(BOLD)Streamwall Ecosystem$(RESET)"
 	@echo "$(DIM)Manage all services in the Streamwall ecosystem$(RESET)"
 	@echo ""
+	@echo "$(GREEN)$(BOLD)Quickest Start:$(RESET) make quick-start"
+	@echo ""
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make $(CYAN)<target>$(RESET)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(CYAN)%-15s$(RESET) %s\n", $$1, $$2 } /^##@/ { printf "\n$(BOLD)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(DIM)Quick shortcuts:$(RESET)"
@@ -45,9 +47,66 @@ help: ## Display this help
 
 ##@ Setup
 
+.PHONY: dev-start
+dev-start: ## Developer quick start with demo mode option
+	@echo "$(BOLD)$(GREEN)Starting Developer Mode...$(RESET)"
+	@./dev-start.sh
+
+.PHONY: demo
+demo: ## Start in demo mode with sample data
+	@echo "$(BOLD)$(CYAN)Starting Demo Mode...$(RESET)"
+	@echo "1" | ./dev-start.sh
+
+.PHONY: integrated
+integrated: ## Start all services with verified integration
+	@echo "$(BOLD)$(GREEN)Starting Integrated Services...$(RESET)"
+	@./start-integrated.sh
+
+.PHONY: quick-start
+quick-start: ## Quick start - setup and run everything with defaults
+	@echo "$(BOLD)$(GREEN)Quick Starting Streamwall...$(RESET)"
+	@./quick-start.sh
+
 .PHONY: setup
-setup: ## Initial setup for all services
-	@echo "$(BOLD)$(BLUE)Setting up Streamwall ecosystem...$(RESET)"
+setup: ## Run interactive setup wizard
+	@echo "$(BOLD)$(BLUE)Starting Streamwall Setup Wizard...$(RESET)"
+	@./setup-wizard.sh
+
+.PHONY: setup-wizard
+setup-wizard: setup ## Alias for setup
+
+.PHONY: setup-full
+setup-full: ## Run full setup (non-interactive)
+	@echo "$(BOLD)$(BLUE)Running full setup...$(RESET)"
+	@./setup-wizard.sh --full
+
+.PHONY: reconfigure
+reconfigure: ## Reconfigure all services
+	@./setup-wizard.sh --reconfigure
+
+.PHONY: configure-service
+configure-service: ## Configure specific service (use with SERVICE=name)
+ifndef SERVICE
+	@echo "$(RED)Please specify SERVICE=streamsource|livestream-monitor|livesheet-checker|streamwall$(RESET)"
+else
+	@./setup-wizard.sh --service $(SERVICE)
+endif
+
+.PHONY: configure-integration
+configure-integration: ## Configure specific integration (use with INTEGRATION=name)
+ifndef INTEGRATION
+	@echo "$(RED)Please specify INTEGRATION=discord|twitch|google-sheets|admin$(RESET)"
+else
+	@./setup-wizard.sh --integration $(INTEGRATION)
+endif
+
+.PHONY: validate-config
+validate-config: ## Validate current configuration
+	@./validate-config.sh
+
+.PHONY: setup-manual
+setup-manual: ## Manual setup for all services (old method)
+	@echo "$(BOLD)$(BLUE)Setting up Streamwall ecosystem manually...$(RESET)"
 	@echo "$(YELLOW)Initializing git submodules...$(RESET)"
 	@git submodule update --init --recursive
 ifdef HAS_MONITOR
@@ -66,13 +125,31 @@ ifdef HAS_WALL
 	@echo "$(YELLOW)Setting up streamwall...$(RESET)"
 	@cd $(WALL_DIR) && npm install
 endif
-	@echo "$(GREEN)✓ Setup complete!$(RESET)"
+	@echo "$(GREEN)✓ Manual setup complete!$(RESET)"
 
 .PHONY: setup-integration
 setup-integration: ## Setup integration testing framework
 	@echo "$(BOLD)$(BLUE)Setting up integration testing...$(RESET)"
 	@npm install --save-dev jest @types/jest ts-jest supertest @types/supertest
 	@echo "$(GREEN)✓ Integration testing setup complete!$(RESET)"
+
+.PHONY: test-setup-wizard
+test-setup-wizard: ## Test the setup wizard scripts
+	@echo "$(BOLD)$(BLUE)Testing setup wizard...$(RESET)"
+	@if command -v bats >/dev/null 2>&1; then \
+		echo "$(YELLOW)Running BATS tests...$(RESET)"; \
+		bats tests/setup-wizard.bats; \
+	else \
+		echo "$(YELLOW)BATS not installed, running basic tests...$(RESET)"; \
+		./test-setup-wizard.sh; \
+	fi
+	@echo "$(YELLOW)Running ShellCheck...$(RESET)"
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck -e SC1091 -e SC2086 setup-wizard.sh validate-config.sh || true; \
+	else \
+		echo "$(DIM)ShellCheck not installed, skipping linting$(RESET)"; \
+	fi
+	@echo "$(GREEN)✓ Setup wizard tests complete!$(RESET)"
 
 ##@ Development
 
@@ -377,6 +454,52 @@ ifdef HAS_CHECKER
 endif
 ifdef HAS_SOURCE
 	@cd $(SOURCE_DIR) && docker-compose pull
+endif
+
+##@ Developer Tools
+
+.PHONY: preflight
+preflight: ## Run pre-flight checks with auto-fixes
+	@echo "$(BOLD)$(BLUE)Running pre-flight checks...$(RESET)"
+	@./scripts/preflight-check.sh
+
+.PHONY: seed-demo
+seed-demo: ## Load demo data into running services
+	@echo "$(BOLD)$(CYAN)Seeding demo data...$(RESET)"
+	@./scripts/seed-demo-data.sh
+
+.PHONY: clean-restart
+clean-restart: ## Clean shutdown and restart all services
+	@echo "$(BOLD)$(YELLOW)Performing clean restart...$(RESET)"
+	@docker compose down
+	@echo "$(YELLOW)Waiting for services to stop...$(RESET)"
+	@sleep 2
+	@docker compose up -d
+	@echo "$(GREEN)✓ Clean restart complete!$(RESET)"
+
+.PHONY: reset-db
+reset-db: ## Reset database (WARNING: deletes all data)
+	@echo "$(BOLD)$(RED)WARNING: This will delete all data!$(RESET)"
+	@read -p "Are you sure? (y/N) " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker compose down -v; \
+		docker compose up -d postgres; \
+		sleep 5; \
+		docker compose up -d; \
+		echo "$(GREEN)✓ Database reset complete!$(RESET)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(RESET)"; \
+	fi
+
+.PHONY: shell
+shell: ## Open shell in a service (use with SERVICE=name)
+ifndef SERVICE
+	@echo "$(YELLOW)Opening shell in streamsource (default)...$(RESET)"
+	@docker compose exec streamsource bash
+else
+	@echo "$(YELLOW)Opening shell in $(SERVICE)...$(RESET)"
+	@docker compose exec $(SERVICE) sh || docker compose exec $(SERVICE) bash
 endif
 
 ##@ Troubleshooting
