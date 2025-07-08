@@ -338,14 +338,39 @@ test: Add monitor service tests
 ## 📚 Resources
 
 ### Documentation
-- [API Reference](./streamsource/API.md)
-- [Architecture](./CLAUDE.md)
-- [Setup Guide](./SETUP-AND-OPS.md)
+- [API Reference](https://github.com/streamwall/streamsource/blob/main/API.md)
+- [Architecture](https://github.com/sayhiben/streamwall-suite/blob/main/CLAUDE.md)
+- [Setup Guide](https://github.com/sayhiben/streamwall-suite/blob/main/SETUP-AND-OPS.md)
 
 ### External Links
 - [Discord Developer Portal](https://discord.com/developers)
 - [Twitch Dev Console](https://dev.twitch.tv/console)
 - [Google Cloud Console](https://console.cloud.google.com)
+
+## 📝 Documentation Guidelines
+
+### Markdown Links in Submodule Projects
+
+When working with this submodule-based repository, use absolute GitHub URLs for cross-repository links:
+
+```markdown
+<!-- ❌ Don't use relative paths for cross-submodule links -->
+[StreamSource README](../streamsource/README.md)
+
+<!-- ✅ Use absolute GitHub URLs -->
+[StreamSource README](https://github.com/streamwall/streamsource/blob/main/README.md)
+```
+
+**Fixing Broken Links:**
+```bash
+# Fix all markdown links in the repository
+python3 fix-markdown-links.py
+
+# Fix specific files
+python3 fix-markdown-links.py README.md docs/*.md
+```
+
+This ensures links work correctly when viewing files on GitHub, where submodules are displayed as external repository links.
 
 ## 💡 Tips & Tricks
 

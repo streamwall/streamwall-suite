@@ -5,39 +5,39 @@ Welcome to the Streamwall ecosystem documentation. This directory contains compr
 ## 📚 Documentation Index
 
 ### Getting Started
-- [Main README](../README.md) - Project overview and quick start guide
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute to the project
+- [Main README](https://github.com/sayhiben/streamwall-suite/blob/main/README.md) - Project overview and quick start guide
+- [Contributing Guide](https://github.com/sayhiben/streamwall-suite/blob/main/CONTRIBUTING.md) - How to contribute to the project
 - [Architecture Overview](ARCHITECTURE.md) - System design and components
 
 ### Development Guides
 - [API Interfaces](API_INTERFACES.md) - Complete API documentation for all services
 - [Service Communication](SERVICE_COMMUNICATION.md) - How services interact with each other
 - [Environment Variables](ENVIRONMENT_VARIABLES.md) - Configuration reference for all services
-- [Integration Tests](../tests/integration/README.md) - Testing guide and best practices
+- [Integration Tests](https://github.com/sayhiben/streamwall-suite/blob/main/tests/integration/README.md) - Testing guide and best practices
 
 ### Deployment & Operations
 - [Deployment Guide](DEPLOYMENT.md) - Deployment options from development to production
-- [Docker Compose Guide](../DOCKER-COMPOSE.md) - Using Docker Compose for the ecosystem
+- [Docker Compose Guide](https://github.com/sayhiben/streamwall-suite/blob/main/DOCKER-COMPOSE.md) - Using Docker Compose for the ecosystem
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
 
 ### Service-Specific Documentation
 
 #### StreamSource (Rails API)
-- [StreamSource README](../streamsource/README.md) - Rails API documentation
-- [StreamSource CLAUDE.md](../streamsource/CLAUDE.md) - AI assistant context
-- [API Documentation](../streamsource/API_DOCUMENTATION.md) - Detailed API specs
-- [Admin Interface](../streamsource/ADMIN_INTERFACE.md) - Admin UI guide
-- [DigitalOcean Deployment](../streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) - Production deployment
+- [StreamSource README](https://github.com/streamwall/streamsource/blob/main/README.md) - Rails API documentation
+- [StreamSource CLAUDE.md](https://github.com/streamwall/streamsource/blob/main/CLAUDE.md) - AI assistant context
+- [API Documentation](https://github.com/streamwall/streamsource/blob/main/API_DOCUMENTATION.md) - Detailed API specs
+- [Admin Interface](https://github.com/streamwall/streamsource/blob/main/ADMIN_INTERFACE.md) - Admin UI guide
+- [DigitalOcean Deployment](https://github.com/streamwall/streamsource/blob/main/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) - Production deployment
 
 #### Livestream Link Monitor
-- [Monitor README](../livestream-link-monitor/README.md) - Discord/Twitch bot documentation
-- [Monitor CLAUDE.md](../livestream-link-monitor/CLAUDE.md) - Service-specific AI context
+- [Monitor README](https://github.com/streamwall/livestream-link-monitor/blob/main/README.md) - Discord/Twitch bot documentation
+- [Monitor CLAUDE.md](https://github.com/streamwall/livestream-link-monitor/blob/main/CLAUDE.md) - Service-specific AI context
 
 #### Livesheet Updater
-- [Checker README](../livesheet-updater/README.md) - Stream status checker documentation
+- [Checker README](https://github.com/streamwall/livesheet-updater/blob/main/README.md) - Stream status checker documentation
 
 #### Streamwall Desktop
-- [Streamwall README](../streamwall/README.md) - Electron app documentation
+- [Streamwall README](https://github.com/streamwall/streamwall/blob/main/README.md) - Electron app documentation
 
 ## 🗺️ Documentation Map
 
@@ -72,25 +72,25 @@ Project Documentation Structure
 ## 🔍 Quick Links by Topic
 
 ### For New Contributors
-1. Start with [CONTRIBUTING.md](../CONTRIBUTING.md)
+1. Start with [CONTRIBUTING.md](https://github.com/sayhiben/streamwall-suite/blob/main/CONTRIBUTING.md)
 2. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the system
-3. Set up development environment using [README.md](../README.md)
+3. Set up development environment using [README.md](https://github.com/sayhiben/streamwall-suite/blob/main/README.md)
 4. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if you encounter issues
 
 ### For API Development
 1. [API_INTERFACES.md](API_INTERFACES.md) - API endpoint reference
 2. [SERVICE_COMMUNICATION.md](SERVICE_COMMUNICATION.md) - Integration patterns
-3. [StreamSource API Docs](../streamsource/API_DOCUMENTATION.md) - Detailed Rails API
+3. [StreamSource API Docs](https://github.com/streamwall/streamsource/blob/main/API_DOCUMENTATION.md) - Detailed Rails API
 
 ### For DevOps/Deployment
 1. [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment strategies
 2. [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) - Configuration reference
-3. [DOCKER-COMPOSE.md](../DOCKER-COMPOSE.md) - Container orchestration
-4. [DigitalOcean Guide](../streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) - Cloud deployment
+3. [DOCKER-COMPOSE.md](https://github.com/sayhiben/streamwall-suite/blob/main/DOCKER-COMPOSE.md) - Container orchestration
+4. [DigitalOcean Guide](https://github.com/streamwall/streamsource/blob/main/DIGITALOCEAN_DEPLOYMENT_GUIDE.md) - Cloud deployment
 
 ### For Testing
-1. [Integration Test Guide](../tests/integration/README.md) - Testing between services
-2. [Test README](../tests/README.md) - General testing guide
+1. [Integration Test Guide](https://github.com/sayhiben/streamwall-suite/blob/main/tests/integration/README.md) - Testing between services
+2. [Test README](https://github.com/sayhiben/streamwall-suite/blob/main/tests/README.md) - General testing guide
 3. Service-specific test documentation
 
 ## 📝 Documentation Standards
@@ -143,7 +143,7 @@ We welcome documentation improvements! To contribute:
 4. Test any code examples
 5. Submit a pull request
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for more details.
+See [CONTRIBUTING.md](https://github.com/sayhiben/streamwall-suite/blob/main/CONTRIBUTING.md) for more details.
 
 ## 📞 Getting Help
 

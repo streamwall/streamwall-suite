@@ -75,7 +75,9 @@
       "Bash(./rename-submodule.sh)",
       "Bash(sed:*)",
       "Bash(./update-references.sh)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(rg:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

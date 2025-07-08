@@ -107,7 +107,7 @@ Default services will be available at:
 
 ## DigitalOcean Deployment
 
-For detailed DigitalOcean deployment instructions, see [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](../streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md).
+For detailed DigitalOcean deployment instructions, see [streamsource/DIGITALOCEAN_DEPLOYMENT_GUIDE.md](https://github.com/streamwall/streamsource/blob/main/DIGITALOCEAN_DEPLOYMENT_GUIDE.md).
 
 ### Quick DigitalOcean Setup
 

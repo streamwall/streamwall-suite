@@ -161,7 +161,7 @@ git submodule update --init --recursive
 ### Cloud Deployment
 
 **DigitalOcean App Platform:**
-See [streamsource/DEPLOYMENT.md](streamsource/DEPLOYMENT.md)
+See [streamsource/DEPLOYMENT.md](https://github.com/streamwall/streamsource/blob/main/DEPLOYMENT.md)
 
 **Docker Swarm/Kubernetes:**
 Use the provided docker-compose.yml as a base for your orchestration config.
