@@ -16,78 +16,18 @@ NC='\033[0m'
 # Spinner function for visual feedback
 spinner() {
     local pid=$1
+    local message=$2
     local delay=0.1
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local spinstr='|/-\'
     while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
         local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
+        printf "\r${YELLOW}⏳ %s... %c${NC}" "$message" "$spinstr"
         local spinstr=$temp${spinstr%"$temp"}
         sleep $delay
-        printf "\b\b\b\b\b\b"
     done
-    printf "    \b\b\b\b"
+    printf "\r\033[K"  # Clear the line
 }
 
-# Check for existing containers
-check_existing_containers() {
-    # Get all containers that might be related to Streamwall
-    local existing_containers=$(docker ps -a --format "{{.Names}}" 2>/dev/null | grep -E "(streamwall|livestream|livesheet|tiktok|streamsource)" | sort)
-    
-    # Also check for specific known container names
-    local known_containers="streamsource-api livestream-monitor livesheet-updater streamwall-app streamwall-postgres streamwall-redis"
-    for container in $known_containers; do
-        if docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
-            existing_containers=$(echo -e "$existing_containers\n$container" | sort -u | grep -v '^$')
-        fi
-    done
-    
-    if [ -n "$existing_containers" ]; then
-        echo -e "\n${YELLOW}⚠️  Found existing Streamwall containers:${NC}"
-        echo "$existing_containers" | while read container; do
-            echo "  • $container"
-        done
-        echo ""
-        echo -e "${CYAN}What would you like to do?${NC}"
-        echo "  1) Remove existing containers and start fresh"
-        echo "  2) Keep existing containers (may cause conflicts)"
-        echo ""
-        read -p "Enter choice (1-2) [1]: " container_choice
-        container_choice=${container_choice:-1}
-        
-        if [ "$container_choice" = "1" ]; then
-            echo -e "${YELLOW}Removing existing containers...${NC}"
-            
-            # Stop and remove all containers matching our patterns
-            local all_containers=$(docker ps -a --format "{{.Names}}" | grep -E "(streamwall|livestream-monitor|livesheet-updater|tiktok-live-checker|streamsource)" || true)
-            
-            # First try docker compose down with all profiles to clean up properly
-            COMPOSE_PROFILES="demo,development" docker compose down 2>/dev/null || true
-            
-            # Also check in the streamsource subdirectory if it exists
-            if [ -d "streamsource" ]; then
-                (cd streamsource && docker compose down 2>/dev/null || true)
-            fi
-            
-            # Force remove ALL matching containers, including ones not in our compose file
-            if [ -n "$all_containers" ]; then
-                echo "$all_containers" | while read container; do
-                    docker rm -f "$container" 2>/dev/null || true
-                done
-            fi
-            
-            # Double-check for specific containers that might cause issues
-            local known_containers="streamsource-api livestream-monitor livesheet-updater streamwall-app streamwall-postgres streamwall-redis"
-            for container in $known_containers; do
-                docker rm -f "$container" 2>/dev/null || true
-            done
-            
-            echo -e "${GREEN}✅ Existing containers removed${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Keeping existing containers. This may cause conflicts.${NC}"
-            echo -e "${CYAN}💡 Tip: Run 'docker compose down' first to avoid conflicts.${NC}"
-        fi
-    fi
-}
 
 # Banner
 clear
@@ -114,34 +54,201 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Check ports
+# Check for existing containers FIRST before checking ports
+# This will help identify if port conflicts are from our own containers
+check_existing_containers_early() {
+    # Get all containers that might be related to Streamwall
+    local existing_containers=$(docker ps -a --format "{{.Names}}" 2>/dev/null | grep -E "(streamwall|livestream|livesheet|tiktok|streamsource)" | sort)
+    
+    if [ -n "$existing_containers" ]; then
+        echo -e "${YELLOW}⚠️  Found existing Streamwall containers${NC}"
+        
+        # Check which containers are running (not just existing)
+        local running_containers=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -E "(streamwall|livestream|livesheet|tiktok|streamsource)" | sort)
+        
+        if [ -n "$running_containers" ]; then
+            echo -e "${CYAN}These containers are currently running:${NC}"
+            echo "$running_containers" | while read container; do
+                echo "  • $container"
+            done
+            echo ""
+            echo -e "${CYAN}Would you like to stop them before continuing?${NC}"
+            echo "  1) Yes, stop running containers"
+            echo "  2) No, continue anyway (may cause port conflicts)"
+            echo ""
+            read -p "Enter choice (1-2) [1]: " early_choice
+            early_choice=${early_choice:-1}
+            
+            if [ "$early_choice" = "1" ]; then
+                echo -e "${YELLOW}Stopping running containers...${NC}"
+                echo "$running_containers" | while read container; do
+                    docker stop "$container" >/dev/null 2>&1 || true
+                done
+                echo -e "${GREEN}✅ Containers stopped${NC}"
+                
+                # Give OS time to release ports
+                echo -e "${CYAN}Waiting for ports to be released...${NC}"
+                sleep 2
+            fi
+        fi
+    fi
+}
+
+# Check existing containers before port checks
+check_existing_containers_early
+
+# Check ports (after container check)
 check_port() {
     local port=$1
+    local service_name=$2
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  Port $port is already in use${NC}"
+        # Try to identify what's using the port
+        local process_info=$(lsof -Pi :$port -sTCP:LISTEN 2>/dev/null | grep -v "^COMMAND" | head -1)
+        local process=$(echo "$process_info" | awk '{print $1}')
+        local pid=$(echo "$process_info" | awk '{print $2}')
+        
+        # Check if it's a Docker container by checking if any running container is using this port
+        local docker_using_port=false
+        local container_name=""
+        
+        # Check all running containers to see if any have this port mapped
+        for container in $(docker ps --format "{{.Names}}" 2>/dev/null); do
+            if docker port "$container" 2>/dev/null | grep -q ":$port->"; then
+                docker_using_port=true
+                container_name="$container"
+                break
+            fi
+        done
+        
+        if [ "$docker_using_port" = true ]; then
+            echo -e "${YELLOW}⚠️  Port $port is in use by Docker container: $container_name${NC}"
+        elif [ -n "$process" ]; then
+            # It's a local service - check if it's a known service
+            case "$process" in
+                postgres|postgresql)
+                    echo -e "${YELLOW}⚠️  Port $port is in use by local PostgreSQL service${NC}"
+                    ;;
+                redis-ser|redis)
+                    echo -e "${YELLOW}⚠️  Port $port is in use by local Redis service${NC}"
+                    ;;
+                *)
+                    echo -e "${YELLOW}⚠️  Port $port is in use by local service: $process${NC}"
+                    ;;
+            esac
+        else
+            echo -e "${YELLOW}⚠️  Port $port is in use${NC}"
+        fi
         return 1
     fi
     return 0
 }
 
+# Check specific ports with service names
+port_checks=(
+    "3000:StreamSource API"
+    "3001:Livestream Monitor"
+    "5432:PostgreSQL"
+    "6379:Redis"
+    "8080:Streamwall Web"
+)
+
 ports_ok=true
-for port in 3000 3001 5432 6379 8080; do
-    if ! check_port $port; then
+port_conflicts=()
+
+for port_check in "${port_checks[@]}"; do
+    IFS=':' read -r port service <<< "$port_check"
+    if ! check_port $port "$service"; then
         ports_ok=false
+        port_conflicts+=("$port:$service")
     fi
 done
 
 if [ "$ports_ok" = false ]; then
-    echo -e "${YELLOW}💡 Some ports are in use. The services will use alternative ports.${NC}"
-    # Auto-adjust ports in .env
-    export STREAMSOURCE_PORT=3010
-    export LIVESTREAM_MONITOR_PORT=3011
-    export POSTGRES_PORT=5433
-    export REDIS_PORT=6380
-    export STREAMWALL_WEB_PORT=8081
-    export DEMO_STREAMSOURCE_PORT=3100
-    export DEMO_MONITOR_PORT=3101
-    export PORTS_ADJUSTED=true
+    echo -e "${YELLOW}💡 Some ports are still in use.${NC}"
+    
+    # Check if any PostgreSQL or Redis processes are still running
+    if pgrep -f "postgres" >/dev/null 2>&1 || pgrep -f "redis-server" >/dev/null 2>&1; then
+        echo -e "${CYAN}Detected database services still shutting down. Waiting a bit longer...${NC}"
+        sleep 3
+        
+        # Re-check the critical ports
+        ports_ok=true
+        for port_check in "${port_checks[@]}"; do
+            IFS=':' read -r port service <<< "$port_check"
+            if ! check_port $port "$service" 2>/dev/null; then
+                ports_ok=false
+            fi
+        done
+    fi
+    
+    if [ "$ports_ok" = false ]; then
+        echo -e "${CYAN}Some services (like local PostgreSQL/Redis) are using the default ports.${NC}"
+        echo ""
+        echo -e "${CYAN}What would you like to do?${NC}"
+        echo "  1) Use alternative ports for Streamwall"
+        echo "  2) Exit and manually stop conflicting services"
+        echo ""
+        read -p "Enter choice (1-2) [1]: " port_choice
+        port_choice=${port_choice:-1}
+        
+        if [ "$port_choice" = "1" ]; then
+            echo -e "${GREEN}Using alternative ports for Streamwall services.${NC}"
+            # Auto-adjust ports in .env
+            export STREAMSOURCE_PORT=3010
+            export LIVESTREAM_MONITOR_PORT=3011
+            export POSTGRES_PORT=5433
+            export REDIS_PORT=6380
+            export STREAMWALL_WEB_PORT=8081
+            export DEMO_STREAMSOURCE_PORT=3100
+            export DEMO_MONITOR_PORT=3101
+            export PORTS_ADJUSTED=true
+        else
+            echo -e "${YELLOW}Please stop the conflicting services and try again.${NC}"
+            echo -e "${CYAN}Suggested commands based on detected services:${NC}"
+            
+            # Check what type of services are running and provide appropriate commands
+            has_docker_conflicts=false
+            has_local_postgres=false
+            has_local_redis=false
+            
+            for port_conflict in "${port_conflicts[@]}"; do
+                IFS=':' read -r port service <<< "$port_conflict"
+                process_info=$(lsof -Pi :$port -sTCP:LISTEN 2>/dev/null | grep -v "^COMMAND" | head -1)
+                process=$(echo "$process_info" | awk '{print $1}')
+                
+                # Check if it's a Docker container
+                for container in $(docker ps --format "{{.Names}}" 2>/dev/null); do
+                    if docker port "$container" 2>/dev/null | grep -q ":$port->"; then
+                        has_docker_conflicts=true
+                        break
+                    fi
+                done
+                
+                # Check for local services
+                case "$process" in
+                    postgres|postgresql) has_local_postgres=true ;;
+                    redis-ser|redis) has_local_redis=true ;;
+                esac
+            done
+            
+            if [ "$has_docker_conflicts" = true ]; then
+                echo "  • docker compose down  # Stop Docker containers"
+                echo "  • docker ps  # Check running containers"
+            fi
+            
+            if [ "$has_local_postgres" = true ]; then
+                echo "  • brew services stop postgresql  # macOS with Homebrew"
+                echo "  • sudo service postgresql stop  # Linux"
+            fi
+            
+            if [ "$has_local_redis" = true ]; then
+                echo "  • brew services stop redis  # macOS with Homebrew"
+                echo "  • sudo service redis-server stop  # Linux"
+            fi
+            
+            exit 0
+        fi
+    fi
 fi
 
 echo -e "${GREEN}✅ Pre-flight checks passed!${NC}\n"
@@ -165,7 +272,7 @@ case $mode in
         echo "  • Perfect for exploring features!"
         
         # Create demo .env
-        cat > .env.demo << 'EOF'
+        cat > .env.demo << EOF
 # Demo Mode Configuration
 NODE_ENV=development
 RAILS_ENV=development
@@ -211,9 +318,9 @@ TWITCH_CHANNEL=demo_channel
 TWITCH_USERNAME=demo_bot
 TWITCH_OAUTH_TOKEN=oauth:demo_token
 
-# Demo Admin Account
-ADMIN_EMAIL=admin@streamwall.local
-ADMIN_PASSWORD=streamwall123
+# Demo Admin Account (created by db/seeds.rb)
+# ADMIN_EMAIL=admin@example.com
+# ADMIN_PASSWORD=Password123!
 
 # Backend Configuration
 BACKEND_TYPE=streamsource
@@ -221,9 +328,6 @@ EOF
         
         # Use demo env
         cp .env.demo .env
-        
-        # Check for existing containers
-        check_existing_containers
         
         # Stop all services first to avoid port conflicts
         docker compose down 2>/dev/null || true
@@ -263,9 +367,6 @@ EOF
             echo "LOG_LEVEL=debug" >> .env
             echo "RAILS_LOG_TO_STDOUT=true" >> .env
         fi
-        
-        # Check for existing containers
-        check_existing_containers
         
         # Start development profile services
         COMPOSE_PROFILES="development" docker compose up -d
@@ -308,24 +409,27 @@ services=(
 
 for service_info in "${services[@]}"; do
     IFS=':' read -r service name <<< "$service_info"
-    echo -ne "${YELLOW}⏳ Starting $name...${NC}"
     
     # Start checking in background
     (
         if [ "$service" = "streamsource" ]; then
-            check_service $service "http://localhost:3000/health"
+            if [ "$mode" = "1" ]; then
+                check_service $service "http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}/health"
+            else
+                check_service $service "http://localhost:${STREAMSOURCE_PORT:-3000}/health"
+            fi
         else
             sleep 3  # Give other services time to start
         fi
     ) &
     pid=$!
-    spinner $pid
+    spinner $pid "Starting $name"
     
     wait $pid
     if [ $? -eq 0 ]; then
-        echo -e "\r${GREEN}✅ $name started successfully${NC}"
+        echo -e "${GREEN}✅ $name started successfully${NC}"
     else
-        echo -e "\r${RED}❌ $name failed to start${NC}"
+        echo -e "${RED}❌ $name failed to start${NC}"
     fi
 done
 
@@ -336,14 +440,7 @@ if [ "$mode" = "1" ]; then
     # Wait a bit more for API to be fully ready
     sleep 5
     
-    # Create demo admin user
-    docker compose exec -T streamsource rails runner "
-        User.create!(
-            email: 'admin@streamwall.local',
-            password: 'streamwall123',
-            role: 'admin'
-        ) rescue nil
-    " 2>/dev/null || true
+    # The demo admin user is already created by db/seeds.rb
     
     # Load sample streams
     docker compose exec -T streamsource rails runner "
@@ -376,13 +473,23 @@ echo -e "\n${GREEN}${BOLD}🎉 Streamwall is ready!${NC}\n"
 
 # Show access information
 echo -e "${CYAN}📍 Access Points:${NC}"
-echo -e "   StreamSource API: ${BOLD}http://localhost:3000${NC}"
-echo -e "   API Health Check: ${BOLD}http://localhost:3000/health${NC}"
+if [ "$mode" = "1" ]; then
+    # Demo mode uses different ports
+    echo -e "   StreamSource API: ${BOLD}http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}${NC}"
+    echo -e "   Admin Interface:  ${BOLD}http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}/admin${NC}"
+    echo -e "   API Health Check: ${BOLD}http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}/health${NC}"
+    echo -e "   API Docs:         ${BOLD}http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}/api-docs${NC}"
+else
+    echo -e "   StreamSource API: ${BOLD}http://localhost:${STREAMSOURCE_PORT:-3000}${NC}"
+    echo -e "   Admin Interface:  ${BOLD}http://localhost:${STREAMSOURCE_PORT:-3000}/admin${NC}"
+    echo -e "   API Health Check: ${BOLD}http://localhost:${STREAMSOURCE_PORT:-3000}/health${NC}"
+    echo -e "   API Docs:         ${BOLD}http://localhost:${STREAMSOURCE_PORT:-3000}/api-docs${NC}"
+fi
 
 if [ "$mode" = "1" ]; then
     echo -e "\n${CYAN}🔑 Demo Credentials:${NC}"
-    echo -e "   Email: ${BOLD}admin@streamwall.local${NC}"
-    echo -e "   Password: ${BOLD}streamwall123${NC}"
+    echo -e "   Email: ${BOLD}admin@example.com${NC}"
+    echo -e "   Password: ${BOLD}Password123!${NC}"
 fi
 
 echo -e "\n${CYAN}🛠️  Useful Commands:${NC}"
@@ -399,16 +506,27 @@ fi
 echo -e "\n${GREEN}Happy coding! 🚀${NC}\n"
 
 # Optional: Open browser
-if command -v open &> /dev/null; then
-    read -p "Open StreamSource in browser? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        open http://localhost:3000
+read -p "Open StreamSource Admin in browser? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Determine the correct URL based on mode
+    if [ "$mode" = "1" ]; then
+        ADMIN_URL="http://localhost:${DEMO_STREAMSOURCE_PORT:-3100}/admin"
+    else
+        ADMIN_URL="http://localhost:${STREAMSOURCE_PORT:-3000}/admin"
     fi
-elif command -v xdg-open &> /dev/null; then
-    read -p "Open StreamSource in browser? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        xdg-open http://localhost:3000
+    
+    # Open in browser based on platform
+    if command -v open &> /dev/null; then
+        # macOS
+        open "$ADMIN_URL"
+    elif command -v xdg-open &> /dev/null; then
+        # Linux
+        xdg-open "$ADMIN_URL"
+    elif command -v start &> /dev/null; then
+        # Windows (WSL)
+        start "$ADMIN_URL"
+    else
+        echo "Please open your browser and navigate to: $ADMIN_URL"
     fi
 fi

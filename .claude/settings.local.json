@@ -78,7 +78,8 @@
       "Bash(git rm:*)",
       "Bash(rg:*)",
       "Bash(python3:*)",
-      "Bash(./dev-start.sh:*)"
+      "Bash(./dev-start.sh:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
