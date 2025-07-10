@@ -90,7 +90,8 @@
       "Bash(COMPOSE_PROFILES=\"demo\" docker compose down)",
       "Bash(make:*)",
       "Bash(rails runner:*)",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(tree:*)"
     ],
     "deny": []
   }
