@@ -88,7 +88,6 @@ services:
       streamsource:
         condition: service_healthy
     volumes:
-      - ./livestream-link-monitor/creds.json:/app/creds.json:ro
       - ./livestream-link-monitor/logs:/app/logs
     environment:
       - NODE_ENV=${NODE_ENV:-development}
@@ -98,16 +97,10 @@ services:
       - DISCORD_TOKEN=${DISCORD_TOKEN:-}
       - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID:-}
       - TWITCH_CHANNEL=${TWITCH_CHANNEL:-}
-      # Google Sheets configuration (optional)
-      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-}
-      - GOOGLE_CREDENTIALS_PATH=/app/creds.json
-      # StreamSource API integration (default backend)
-      - BACKEND_TYPE=${BACKEND_TYPE:-streamsource}
-      - BACKEND_MODE=${BACKEND_MODE:-single}
-      - BACKEND_PRIMARY=${BACKEND_PRIMARY:-streamSource}
-      - BACKEND_STREAMSOURCE_ENABLED=${BACKEND_STREAMSOURCE_ENABLED:-true}
+      # StreamSource API integration
       - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
+      - STREAMSOURCE_EMAIL=${STREAMSOURCE_EMAIL:-}
+      - STREAMSOURCE_PASSWORD=${STREAMSOURCE_PASSWORD:-}
     ports:
       - "${LIVESTREAM_MONITOR_PORT:-3001}:${LIVESTREAM_MONITOR_PORT:-3001}"
     healthcheck:
@@ -132,17 +125,14 @@ services:
       streamsource:
         condition: service_healthy
     volumes:
-      - ./livesheet-updater/creds.json:/app/creds.json:ro
       - ./livesheet-updater/logs:/app/logs
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - TZ=${TZ:-UTC}
-      # Google Sheets configuration
-      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-}
-      - GOOGLE_CREDENTIALS_PATH=/app/creds.json
-      # Optional StreamSource integration
+      # StreamSource API configuration
       - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
+      - STREAMSOURCE_EMAIL=${STREAMSOURCE_EMAIL:-}
+      - STREAMSOURCE_PASSWORD=${STREAMSOURCE_PASSWORD:-}
     healthcheck:
       test: ["CMD", "node", "--version"]
       interval: 60s

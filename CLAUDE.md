@@ -2,10 +2,15 @@
 
 ## Architecture
 
-```
-Discord/Twitch → Monitor → StreamSource API → Streamwall Display
-                             ↑
-                    Livesheet Updater
+```mermaid
+flowchart LR
+    D[Discord/Twitch] --> M[Monitor]
+    M --> S[StreamSource API]
+    S --> W[Streamwall Display]
+    L[Livesheet Updater] --> S
+    
+    style S fill:#f96,stroke:#333,stroke-width:4px
+    style W fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
 ### Core Services
@@ -20,20 +25,19 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 
 #### 2. **livestream-link-monitor/** (Node.js Service)
 - **Purpose**: Monitors Discord channels and Twitch chat for livestream URLs
-- **Technology**: Node.js, Discord.js, TMI.js, Google Sheets API
+- **Technology**: Node.js, Discord.js, TMI.js
 - **Role**: Automated stream discovery and validation from social platforms
-- **Integration**: Dual backend support (Google Sheets + StreamSource API)
+- **Integration**: StreamSource API for stream data storage
 - **Features**: Platform detection, location parsing, rate limiting, deduplication
 - **Repository**: [github.com/streamwall/livestream-link-monitor](https://github.com/streamwall/livestream-link-monitor)
 
 #### 3. **livesheet-updater/** (Node.js Service)
-- **Purpose**: Monitors Google Sheets for stream status and updates
-- **Technology**: Node.js, Google Sheets API
-- **Role**: Bridge between Google Sheets and stream monitoring
-- **Integration**: Updates Google Sheets with live/offline status
-- **Features**: HTTP-based stream checking, rate limiting, batch updates
+- **Purpose**: Monitors stream status and archives expired streams
+- **Technology**: Node.js
+- **Role**: Continuously checks if streams are live/offline
+- **Integration**: StreamSource API for status updates and archiving
+- **Features**: HTTP-based stream checking, rate limiting, automatic archiving
 - **Repository**: [github.com/streamwall/livesheet-updater](https://github.com/streamwall/livesheet-updater)
-- **Note**: Also known as `livesheet-updater` - they are the same service
 
 #### 4. **streamwall/** (Electron Application)
 - **Purpose**: Desktop application for creating livestream mosaics
@@ -46,18 +50,13 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 
 ### Primary Integration Patterns
 
-#### 1. **StreamSource API as Hub**
-- All services can read/write to StreamSource via REST API
+#### 1. **StreamSource API as Central Hub**
+- All services read/write to StreamSource via REST API
 - JWT authentication for secure access
 - Real-time updates via ActionCable WebSocket
 - Feature flags control service behavior
 
-#### 2. **Google Sheets as Backup/Legacy**
-- livestream-link-monitor supports dual-write mode
-- livesheet-updater provides Google Sheets monitoring
-- Supports migration from Sheets-based to API-based workflows
-
-#### 3. **Event-Driven Architecture**
+#### 2. **Event-Driven Architecture**
 - Services emit events when streams are discovered/updated
 - Real-time notifications via ActionCable
 - Potential for webhook integration
@@ -93,12 +92,20 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 }
 ```
 
-#### Known Cities Feature
-StreamSource now supports location validation through a "known cities" feature:
-- Admins can mark locations as "known/verified" cities
-- When `LOCATION_VALIDATION` feature flag is enabled, only known cities are accepted
-- API endpoints: `/api/v1/locations/known_cities` for validated cities
+#### Location Management Features
+StreamSource supports comprehensive location management:
+- **Known Cities**: Admins can mark locations as "known/verified" cities
+- **Location Validation**: When `LOCATION_VALIDATION` feature flag is enabled, only known cities are accepted
+- **API Endpoints**: `/api/v1/locations/known_cities` for validated cities
+- **Admin UI**: Full CRUD operations for locations with search and filtering
 - See `streamsource/docs/KNOWN_CITIES_INTEGRATION.md` for integration details
+
+#### Ignore Lists Feature
+StreamSource provides ignore list management:
+- **Types**: Twitch users, Discord users, URLs, and domains
+- **API Endpoints**: `/api/v1/ignore_lists` with bulk operations support
+- **Admin UI**: Full management interface with bulk import capability
+- **Integration**: livestream-link-monitor automatically filters ignored entries
 
 ## Recommended Integration Tests
 
@@ -121,11 +128,11 @@ describe('End-to-End Stream Discovery', () => {
 #### 2. **Data Consistency Tests**
 ```javascript
 describe('Data Consistency Across Services', () => {
-  it('should maintain consistency between Google Sheets and StreamSource', async () => {
-    // 1. Add stream via livestream-link-monitor (dual-write mode)
-    // 2. Verify data exists in both Google Sheets and StreamSource
+  it('should maintain data consistency across services', async () => {
+    // 1. Add stream via livestream-link-monitor
+    // 2. Verify data exists in StreamSource
     // 3. Update stream status via livesheet-updater
-    // 4. Verify updates propagate to StreamSource
+    // 4. Verify status updates in StreamSource
     // 5. Verify Streamwall reflects updated status
   });
 });
@@ -164,11 +171,14 @@ describe('Security Integration', () => {
 
 #### livestream-link-monitor → StreamSource
 - **Test**: URL normalization and platform detection
-- **Test**: Duplicate detection across backends
+- **Test**: Duplicate detection
 - **Test**: Rate limiting and spam protection
+- **Test**: Ignore list filtering
+- **Test**: Location validation
 
-#### livesheet-updater → Google Sheets
-- **Test**: Sheet format compatibility
+#### livesheet-updater → StreamSource
+- **Test**: Stream status checking
+- **Test**: Automatic archiving after threshold
 - **Test**: Batch update performance
 - **Test**: Error handling for invalid data
 
@@ -369,10 +379,10 @@ services:
 5. **Admin Dashboard**: Centralized management interface
 
 ### Service Evolution
-- Migrate from Google Sheets to StreamSource API fully
 - Add GraphQL endpoints for complex queries
 - Implement message queues for better resilience
 - Add automated testing for integration scenarios
+- Enhance real-time features with WebSocket subscriptions
 
 ## Common Integration Issues
 
