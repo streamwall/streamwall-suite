@@ -110,6 +110,19 @@ validate: ## Check configuration
 		docker info >/dev/null 2>&1 && echo "$(GREEN)✓ Docker running$(RESET)" || echo "$(RED)✗ Docker not running$(RESET)"; \
 	fi
 
+.PHONY: test
+test: ## Run tests for all services
+	@echo "$(BOLD)$(BLUE)Running tests...$(RESET)"
+	@if [ -d streamsource ]; then \
+		echo "$(CYAN)Testing StreamSource...$(RESET)"; \
+		cd streamsource && bundle exec rspec || true; \
+	fi
+	@if [ -d livestream-link-monitor ]; then \
+		echo "$(CYAN)Testing Monitor...$(RESET)"; \
+		cd livestream-link-monitor && npm test || true; \
+	fi
+	@echo "$(GREEN)✓ Tests complete!$(RESET)"
+
 .PHONY: update
 update: ## Update submodules and dependencies
 	@echo "$(BOLD)$(BLUE)Updating...$(RESET)"

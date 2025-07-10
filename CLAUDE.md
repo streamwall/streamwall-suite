@@ -26,7 +26,7 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
 - **Features**: Platform detection, location parsing, rate limiting, deduplication
 - **Repository**: [github.com/streamwall/livestream-link-monitor](https://github.com/streamwall/livestream-link-monitor)
 
-#### 3. **livesheet-updater/** (Node.js Service) 
+#### 3. **livesheet-updater/** (Node.js Service)
 - **Purpose**: Monitors Google Sheets for stream status and updates
 - **Technology**: Node.js, Google Sheets API
 - **Role**: Bridge between Google Sheets and stream monitoring
@@ -184,7 +184,7 @@ All services are included as Git submodules, allowing:
 ### Working with Submodules
 ```bash
 # Clone with all submodules
-git clone --recursive https://github.com/sayhiben/streamwall.git
+git clone --recursive https://github.com/streamwall/streamwall-suite.git
 
 # Initialize submodules in existing clone
 git submodule update --init --recursive
@@ -328,22 +328,22 @@ services:
     build: ./streamsource
     ports: ["3000:3000"]
     depends_on: [db, redis]
-    
+
   livestream-monitor:
     build: ./livestream-link-monitor
     depends_on: [streamsource]
-    
+
   livesheet-updater:
     build: ./livesheet-updater
     depends_on: [streamsource]
-    
+
   streamwall:
     build: ./streamwall
     depends_on: [streamsource]
-    
+
   db:
     image: postgres:17
-    
+
   redis:
     image: redis:7-alpine
 ```

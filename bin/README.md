@@ -17,7 +17,7 @@ The interactive setup wizard for configuring all Streamwall services. This handl
 - Integration configuration (Discord, Twitch, etc.)
 - Admin account creation
 
-Called by: `make setup`, `make reconfigure`, etc.
+Called by: `make setup`
 
 ### streamwall-validate
 Configuration validator that checks:
@@ -28,6 +28,15 @@ Configuration validator that checks:
 - Service health
 
 Called by: `make validate`
+
+
+### seed-demo-data.sh
+Seeds demo/test data into a running StreamSource instance. Creates:
+- Sample streams
+- Test users
+- Example configurations
+
+Not currently called by Makefile (can be run manually if needed)
 
 ## Why These Exist
 
