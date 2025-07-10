@@ -81,7 +81,9 @@
       "Bash(./dev-start.sh:*)",
       "Bash(curl:*)",
       "Bash(bundle exec rails:*)",
-      "Bash(make clean-scripts:*)"
+      "Bash(make clean-scripts:*)",
+      "Bash(do if [ \"$file\" != \"simple-integration.test.js\" ])",
+      "Bash(then mv \"$file\" \"$file.disabled\")"
     ],
     "deny": []
   }

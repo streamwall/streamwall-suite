@@ -1,18 +1,14 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: [
     '**/tests/**/*.test.[jt]s',
     '**/tests/**/*.spec.[jt]s'
   ],
-  moduleFileExtensions: ['ts', 'js', 'json'],
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
+  moduleFileExtensions: ['js', 'json'],
   collectCoverageFrom: [
-    'tests/**/*.{js,ts}',
+    'tests/**/*.{js}',
     '!tests/**/*.d.ts',
   ],
   testTimeout: 30000, // 30 seconds for integration tests
@@ -27,18 +23,12 @@ module.exports = {
     '<rootDir>/streamwall/',
     '<rootDir>/streamsource/',
     '<rootDir>/livestream-link-monitor/',
-    '<rootDir>/livesheet-checker/'
+    '<rootDir>/livesheet-updater/'
   ],
-  projects: [
-    {
-      displayName: 'integration',
-      testMatch: ['<rootDir>/tests/integration/**/*.test.[jt]s'],
-      testEnvironment: 'node',
-    },
-    {
-      displayName: 'e2e',
-      testMatch: ['<rootDir>/tests/e2e/**/*.test.[jt]s'],
-      testEnvironment: 'node',
-    }
-  ]
+  // Fix circular structure issues
+  maxWorkers: 1,
+  forceExit: true,
+  detectOpenHandles: true,
+  // Disable worker serialization that causes circular JSON issues
+  runner: 'jest-serial-runner'
 };

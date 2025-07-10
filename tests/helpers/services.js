@@ -56,7 +56,7 @@ function stopService(serviceName, composeFile = 'docker-compose.yml') {
 function getServiceDirectory(serviceName) {
   const serviceMap = {
     'livestream-link-monitor': 'livestream-link-monitor',
-    'livesheet-checker': 'livesheet-checker',
+    'livesheet-updater': 'livesheet-updater',
     'streamsource': 'streamsource',
     'streamwall': 'streamwall'
   };

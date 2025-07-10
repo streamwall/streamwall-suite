@@ -1,5 +1,6 @@
 // Mock livestream-link-monitor service for testing
 const express = require('express');
+const axios = require('axios');
 
 class MockLivestreamMonitor {
   constructor(port = 3001, options = {}) {
@@ -72,23 +73,21 @@ class MockLivestreamMonitor {
             let syncedToApi = false;
             if (this.dualWriteMode && this.streamSourceToken) {
               try {
-                const response = await fetch(`${this.streamSourceUrl}/streams`, {
-                  method: 'POST',
+                const response = await axios.post(`${this.streamSourceUrl}/streams`, {
+                  source: stream.posted_by,
+                  link: stream.url,
+                  platform: stream.platform,
+                  city: stream.city,
+                  state: stream.state,
+                  status: 'offline'
+                }, {
                   headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.streamSourceToken}`
-                  },
-                  body: JSON.stringify({
-                    source: stream.posted_by,
-                    link: stream.url,
-                    platform: stream.platform,
-                    city: stream.city,
-                    state: stream.state,
-                    status: 'offline'
-                  })
+                  }
                 });
                 
-                if (response.ok) {
+                if (response.status === 200 || response.status === 201) {
                   syncedToApi = true;
                   this.syncedStreams.add(url);
                 }
