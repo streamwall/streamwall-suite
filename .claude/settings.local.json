@@ -83,7 +83,13 @@
       "Bash(bundle exec rails:*)",
       "Bash(make clean-scripts:*)",
       "Bash(do if [ \"$file\" != \"simple-integration.test.js\" ])",
-      "Bash(then mv \"$file\" \"$file.disabled\")"
+      "Bash(then mv \"$file\" \"$file.disabled\")",
+      "Bash(make:*)",
+      "Bash(rails routes)",
+      "Bash(bundle install:*)",
+      "Bash(COMPOSE_PROFILES=\"demo\" docker compose down)",
+      "Bash(make:*)",
+      "Bash(rails runner:*)"
     ],
     "deny": []
   }

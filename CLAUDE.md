@@ -416,10 +416,10 @@ make load-test-websocket
 ### Service Management
 ```bash
 # Start all services
-make start-all
+make up
 
 # Stop all services
-make stop-all
+make down
 
 # View logs from all services
 make logs-all

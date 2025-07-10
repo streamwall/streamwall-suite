@@ -200,42 +200,77 @@ services:
       - ENABLE_DEMO_STREAMS=true
 
   livestream-monitor-demo:
-    extends: livestream-monitor
+    build: ./livestream-link-monitor
     profiles: ["demo"]
     container_name: livestream-monitor-demo
+    restart: unless-stopped
     ports:
       - "${DEMO_MONITOR_PORT:-3101}:3001"
     depends_on:
       streamsource-demo:
         condition: service_healthy
+    volumes:
+      - ./livestream-link-monitor/creds.json:/app/creds.json:ro
+      - ./livestream-link-monitor/logs:/app/logs
     environment:
       - NODE_ENV=development
       - DEMO_MODE=true
       - MOCK_DISCORD=true
       - MOCK_TWITCH=true
+      - TZ=${TZ:-UTC}
+      - PORT=${LIVESTREAM_MONITOR_PORT:-3001}
       - DISCORD_TOKEN=demo_discord_token
       - DISCORD_CHANNEL_ID=123456789012345678
       - TWITCH_CHANNEL=demo_channel
       - BACKEND_TYPE=streamsource
-      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
+      - BACKEND_MODE=${BACKEND_MODE:-single}
+      - BACKEND_PRIMARY=${BACKEND_PRIMARY:-streamSource}
+      - BACKEND_STREAMSOURCE_ENABLED=${BACKEND_STREAMSOURCE_ENABLED:-true}
+      - STREAMSOURCE_API_URL=http://streamsource-demo:3000/api/v1
       - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
       - AUTO_GENERATE_STREAMS=true
       - STREAM_GENERATION_INTERVAL=30000
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${LIVESTREAM_MONITOR_PORT:-3001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   livesheet-updater-demo:
-    extends: livesheet-updater
+    build: ./livesheet-updater
     profiles: ["demo"]
     container_name: livesheet-updater-demo
+    restart: unless-stopped
     depends_on:
       streamsource-demo:
         condition: service_healthy
+    volumes:
+      - ./livesheet-updater/creds.json:/app/creds.json:ro
+      - ./livesheet-updater/logs:/app/logs
     environment:
       - NODE_ENV=development
       - DEMO_MODE=true
       - MOCK_GOOGLE_SHEETS=true
       - CHECK_INTERVAL=10000
-      - STREAMSOURCE_API_URL=http://streamsource:3000/api/v1
+      - TZ=${TZ:-UTC}
+      - STREAMSOURCE_API_URL=http://streamsource-demo:3000/api/v1
       - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 # Networks
 networks:

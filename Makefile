@@ -43,10 +43,12 @@ start: ## Smart start - detects best mode and guides you
 .PHONY: demo
 demo: ## Quick demo with sample data (great for trying it out)
 	@echo "$(BOLD)$(CYAN)Starting Demo Mode...$(RESET)"
-	@$(MAKE) _create-demo-env
+	@if [ ! -f .env.demo ]; then \
+		$(MAKE) _create-demo-env; \
+	fi
 	@cp .env.demo .env
 	@docker compose down 2>/dev/null || true
-	@COMPOSE_PROFILES="demo,development" docker compose up -d
+	@COMPOSE_PROFILES="demo" docker compose up -d
 	@echo ""
 	@echo "$(GREEN)✅ Demo started!$(RESET)"
 	@echo ""
@@ -75,8 +77,11 @@ up: ## Start all services
 .PHONY: down
 down: ## Stop all services
 	@echo "$(BOLD)$(RED)Stopping services...$(RESET)"
-	@docker compose down
-	@echo "$(GREEN)✅ Services stopped!$(RESET)"
+	@docker compose down 2>/dev/null || true
+	@COMPOSE_PROFILES="demo" docker compose down 2>/dev/null || true
+	@docker ps --format '{{.Names}}' | grep -E '(streamwall|streamsource|livestream|livesheet)' | xargs docker stop 2>/dev/null || true
+	@docker ps -a --format '{{.Names}}' | grep -E '(streamwall|streamsource|livestream|livesheet)' | xargs docker rm 2>/dev/null || true
+	@echo "$(GREEN)✅ All services stopped!$(RESET)"
 
 .PHONY: restart
 restart: down up ## Restart all services
@@ -136,8 +141,12 @@ clean: ## Clean up containers and volumes (WARNING: deletes data)
 	@read -p "Are you sure? (y/N) " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose down -v; \
-		echo "$(GREEN)✅ Cleaned!$(RESET)"; \
+		docker compose down -v 2>/dev/null || true; \
+		COMPOSE_PROFILES="demo" docker compose down -v 2>/dev/null || true; \
+		docker ps --format '{{.Names}}' | grep -E '(streamwall|streamsource|livestream|livesheet)' | xargs docker stop 2>/dev/null || true; \
+		docker ps -a --format '{{.Names}}' | grep -E '(streamwall|streamsource|livestream|livesheet)' | xargs docker rm 2>/dev/null || true; \
+		docker volume ls --format '{{.Name}}' | grep -E '(streamwall|streamsource|livestream|livesheet)' | xargs docker volume rm 2>/dev/null || true; \
+		echo "$(GREEN)✅ All containers and volumes cleaned!$(RESET)"; \
 	fi
 
 .PHONY: help
@@ -173,10 +182,10 @@ _create-demo-env:
 	@echo "POSTGRES_DB=streamwall_demo" >> .env.demo
 	@echo "DATABASE_URL=postgresql://streamwall:demo_password@postgres:5432/streamwall_demo" >> .env.demo
 	@echo "" >> .env.demo
-	@echo "# Security (demo only)" >> .env.demo
-	@echo "SECRET_KEY_BASE=demo_secret_$$(date +%s)" >> .env.demo
-	@echo "JWT_SECRET=demo_jwt_$$(date +%s)" >> .env.demo
-	@echo "STREAMSOURCE_API_KEY=demo_api_$$(date +%s)" >> .env.demo
+	@echo "# Security (demo only - DO NOT USE IN PRODUCTION)" >> .env.demo
+	@echo "SECRET_KEY_BASE=demo_secret_key_base_30_characters_long_not_for_production" >> .env.demo
+	@echo "JWT_SECRET=demo_jwt_secret_30_characters_long_not_for_production" >> .env.demo
+	@echo "STREAMSOURCE_API_KEY=demo_api_key_30_characters_long_not_for_production" >> .env.demo
 	@echo "" >> .env.demo
 	@echo "# Services" >> .env.demo
 	@echo "REDIS_URL=redis://redis:6379/0" >> .env.demo
