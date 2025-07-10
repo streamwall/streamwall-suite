@@ -77,8 +77,12 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
     "platform_username": "username"
   },
   "location": {
+    "id": 123,
     "city": "City Name",
-    "state": "State Code"
+    "state_province": "State Code",
+    "country": "Country Code",
+    "is_known_city": true,
+    "normalized_name": "city name, state code"
   },
   "metadata": {
     "added_date": "2024-01-01T00:00:00Z",
@@ -88,6 +92,13 @@ Discord/Twitch → Monitor → StreamSource API → Streamwall Display
   }
 }
 ```
+
+#### Known Cities Feature
+StreamSource now supports location validation through a "known cities" feature:
+- Admins can mark locations as "known/verified" cities
+- When `LOCATION_VALIDATION` feature flag is enabled, only known cities are accepted
+- API endpoints: `/api/v1/locations/known_cities` for validated cities
+- See `streamsource/docs/KNOWN_CITIES_INTEGRATION.md` for integration details
 
 ## Recommended Integration Tests
 

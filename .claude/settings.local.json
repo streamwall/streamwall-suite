@@ -79,7 +79,9 @@
       "Bash(rg:*)",
       "Bash(python3:*)",
       "Bash(./dev-start.sh:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(bundle exec rails:*)",
+      "Bash(make clean-scripts:*)"
     ],
     "deny": []
   }

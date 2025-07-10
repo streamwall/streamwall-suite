@@ -1,580 +1,170 @@
-# Streamwall Ecosystem Makefile
-# This Makefile orchestrates all services in the Streamwall ecosystem
+# Streamwall - Unified Control Center
+# Just run 'make' to get started!
 
-# Colors for pretty output
+# Colors
 RESET := \033[0m
 BOLD := \033[1m
-DIM := \033[2m
 RED := \033[31m
 GREEN := \033[32m
 YELLOW := \033[33m
 BLUE := \033[34m
-MAGENTA := \033[35m
 CYAN := \033[36m
-WHITE := \033[37m
 
-# Service directories
-MONITOR_DIR := livestream-link-monitor
-UPDATER_DIR := livesheet-updater
-SOURCE_DIR := streamsource
-WALL_DIR := streamwall
+# Default target - smart interactive mode
+.DEFAULT_GOAL := start
 
-# Check which services exist
-HAS_MONITOR := $(shell test -d $(MONITOR_DIR) && echo 1)
-HAS_UPDATER := $(shell test -d $(UPDATER_DIR) && echo 1)
-HAS_SOURCE := $(shell test -d $(SOURCE_DIR) && echo 1)
-HAS_WALL := $(shell test -d $(WALL_DIR) && echo 1)
-
-# Default target
-.DEFAULT_GOAL := help
-
-# Include .env file if it exists
+# Include .env if it exists
 -include .env
 
-##@ General
+##@ Getting Started
 
-.PHONY: help
-help: ## Display this help
-	@echo "$(BOLD)Streamwall Ecosystem$(RESET)"
-	@echo "$(DIM)Manage all services in the Streamwall ecosystem$(RESET)"
-	@echo ""
-	@echo "$(GREEN)$(BOLD)Quickest Start:$(RESET) make quick-start"
-	@echo ""
-	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make $(CYAN)<target>$(RESET)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(CYAN)%-15s$(RESET) %s\n", $$1, $$2 } /^##@/ { printf "\n$(BOLD)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(DIM)Quick shortcuts:$(RESET)"
-	@echo "  $(CYAN)d$(RESET) → dev    $(CYAN)u$(RESET) → up    $(CYAN)l$(RESET) → logs    $(CYAN)r$(RESET) → restart    $(CYAN)s$(RESET) → status"
-
-##@ Setup
-
-.PHONY: dev-start
-dev-start: ## Developer quick start with demo mode option
-	@echo "$(BOLD)$(GREEN)Starting Developer Mode...$(RESET)"
-	@./dev-start.sh
+.PHONY: start
+start: ## Smart start - detects best mode and guides you
+	@if [ ! -f .env ] && [ ! -f .setup-complete ]; then \
+		echo "$(BOLD)$(YELLOW)Welcome to Streamwall!$(RESET)"; \
+		echo ""; \
+		echo "Choose an option:"; \
+		echo "  $(BOLD)1)$(RESET) Demo mode - Try it out with sample data"; \
+		echo "  $(BOLD)2)$(RESET) Setup mode - Configure for real use"; \
+		echo ""; \
+		read -p "Enter choice [1]: " choice; \
+		case $$choice in \
+			2) $(MAKE) setup ;; \
+			*) $(MAKE) demo ;; \
+		esac; \
+	elif grep -q "DEMO_MODE=true" .env 2>/dev/null; then \
+		$(MAKE) up; \
+		echo ""; \
+		echo "$(CYAN)Demo mode active. Run '$(BOLD)make help$(RESET)$(CYAN)' for more options.$(RESET)"; \
+	else \
+		$(MAKE) up; \
+	fi
 
 .PHONY: demo
-demo: ## Start in demo mode with sample data
+demo: ## Quick demo with sample data (great for trying it out)
 	@echo "$(BOLD)$(CYAN)Starting Demo Mode...$(RESET)"
-	@echo "1" | ./dev-start.sh
-
-.PHONY: integrated
-integrated: ## Start all services with verified integration
-	@echo "$(BOLD)$(GREEN)Starting Integrated Services...$(RESET)"
-	@./start-integrated.sh
-
-.PHONY: quick-start
-quick-start: ## Quick start - setup and run everything with defaults
-	@echo "$(BOLD)$(GREEN)Quick Starting Streamwall...$(RESET)"
-	@./quick-start.sh
+	@$(MAKE) _create-demo-env
+	@cp .env.demo .env
+	@docker compose down 2>/dev/null || true
+	@COMPOSE_PROFILES="demo,development" docker compose up -d
+	@echo ""
+	@echo "$(GREEN)✅ Demo started!$(RESET)"
+	@echo ""
+	@echo "$(CYAN)Access:$(RESET) http://localhost:3100/admin"
+	@echo "$(CYAN)Login:$(RESET) admin@example.com / Password123!"
 
 .PHONY: setup
-setup: ## Run interactive setup wizard
-	@echo "$(BOLD)$(BLUE)Starting Streamwall Setup Wizard...$(RESET)"
-	@./setup-wizard.sh
-
-.PHONY: setup-wizard
-setup-wizard: setup ## Alias for setup
-
-.PHONY: setup-full
-setup-full: ## Run full setup (non-interactive)
-	@echo "$(BOLD)$(BLUE)Running full setup...$(RESET)"
-	@./setup-wizard.sh --full
-
-.PHONY: reconfigure
-reconfigure: ## Reconfigure all services
-	@./setup-wizard.sh --reconfigure
-
-.PHONY: configure-service
-configure-service: ## Configure specific service (use with SERVICE=name)
-ifndef SERVICE
-	@echo "$(RED)Please specify SERVICE=streamsource|livestream-monitor|livesheet-updater|streamwall$(RESET)"
-else
-	@./setup-wizard.sh --service $(SERVICE)
-endif
-
-.PHONY: configure-integration
-configure-integration: ## Configure specific integration (use with INTEGRATION=name)
-ifndef INTEGRATION
-	@echo "$(RED)Please specify INTEGRATION=discord|twitch|google-sheets|admin$(RESET)"
-else
-	@./setup-wizard.sh --integration $(INTEGRATION)
-endif
-
-.PHONY: validate-config
-validate-config: ## Validate current configuration
-	@./validate-config.sh
-
-.PHONY: setup-manual
-setup-manual: ## Manual setup for all services (old method)
-	@echo "$(BOLD)$(BLUE)Setting up Streamwall ecosystem manually...$(RESET)"
-	@echo "$(YELLOW)Initializing git submodules...$(RESET)"
-	@git submodule update --init --recursive
-ifdef HAS_MONITOR
-	@echo "$(YELLOW)Setting up livestream-link-monitor...$(RESET)"
-	@cd $(MONITOR_DIR) && make setup
-endif
-ifdef HAS_UPDATER
-	@echo "$(YELLOW)Setting up livesheet-updater...$(RESET)"
-	@cd $(UPDATER_DIR) && npm install
-endif
-ifdef HAS_SOURCE
-	@echo "$(YELLOW)Setting up streamsource...$(RESET)"
-	@cd $(SOURCE_DIR) && bundle install
-endif
-ifdef HAS_WALL
-	@echo "$(YELLOW)Setting up streamwall...$(RESET)"
-	@cd $(WALL_DIR) && npm install
-endif
-	@echo "$(GREEN)✓ Manual setup complete!$(RESET)"
-
-.PHONY: setup-integration
-setup-integration: ## Setup integration testing framework
-	@echo "$(BOLD)$(BLUE)Setting up integration testing...$(RESET)"
-	@npm install --save-dev jest @types/jest ts-jest supertest @types/supertest
-	@echo "$(GREEN)✓ Integration testing setup complete!$(RESET)"
-
-.PHONY: test-setup-wizard
-test-setup-wizard: ## Test the setup wizard scripts
-	@echo "$(BOLD)$(BLUE)Testing setup wizard...$(RESET)"
-	@if command -v bats >/dev/null 2>&1; then \
-		echo "$(YELLOW)Running BATS tests...$(RESET)"; \
-		bats tests/setup-wizard.bats; \
+setup: ## Interactive setup wizard for production use
+	@echo "$(BOLD)$(BLUE)Starting Setup Wizard...$(RESET)"
+	@if [ -f ./bin/streamwall-setup-wizard ]; then \
+		./bin/streamwall-setup-wizard; \
 	else \
-		echo "$(YELLOW)BATS not installed, running basic tests...$(RESET)"; \
-		./test-setup-wizard.sh; \
+		echo "$(YELLOW)Creating basic .env file...$(RESET)"; \
+		cp .env.example .env 2>/dev/null || echo "# Streamwall Config" > .env; \
+		echo "$(GREEN)✓ Done! Edit .env to customize.$(RESET)"; \
 	fi
-	@echo "$(YELLOW)Running ShellCheck...$(RESET)"
-	@if command -v shellcheck >/dev/null 2>&1; then \
-		shellcheck -e SC1091 -e SC2086 setup-wizard.sh validate-config.sh || true; \
-	else \
-		echo "$(DIM)ShellCheck not installed, skipping linting$(RESET)"; \
-	fi
-	@echo "$(GREEN)✓ Setup wizard tests complete!$(RESET)"
 
-##@ Development
+##@ Core Commands
 
-.PHONY: dev d
-dev d: ## Start all services in development mode
-	@echo "$(BOLD)$(GREEN)Starting all services in development mode...$(RESET)"
-	@$(MAKE) dev-monitor &
-	@$(MAKE) dev-checker &
-	@$(MAKE) dev-source &
-	@$(MAKE) dev-wall &
-	@wait
-	@echo "$(GREEN)✓ All services started!$(RESET)"
-
-.PHONY: dev-monitor
-dev-monitor: ## Start livestream-link-monitor only
-ifdef HAS_MONITOR
-	@echo "$(YELLOW)Starting livestream-link-monitor...$(RESET)"
-	@cd $(MONITOR_DIR) && make dev
-else
-	@echo "$(RED)livestream-link-monitor not found$(RESET)"
-endif
-
-.PHONY: dev-checker
-dev-checker: ## Start livesheet-updater only
-ifdef HAS_UPDATER
-	@echo "$(YELLOW)Starting livesheet-updater...$(RESET)"
-	@cd $(UPDATER_DIR) && docker-compose up
-else
-	@echo "$(RED)livesheet-updater not found$(RESET)"
-endif
-
-.PHONY: dev-source
-dev-source: ## Start streamsource only
-ifdef HAS_SOURCE
-	@echo "$(YELLOW)Starting streamsource...$(RESET)"
-	@cd $(SOURCE_DIR) && docker-compose up
-else
-	@echo "$(RED)streamsource not found$(RESET)"
-endif
-
-.PHONY: dev-wall
-dev-wall: ## Start streamwall only
-ifdef HAS_WALL
-	@echo "$(YELLOW)Starting streamwall...$(RESET)"
-	@cd $(WALL_DIR) && npm run start:app
-else
-	@echo "$(RED)streamwall not found$(RESET)"
-endif
-
-##@ Production
-
-.PHONY: up u
-up u: ## Start all services in production mode using top-level docker-compose
-	@echo "$(BOLD)$(GREEN)Starting all services in production mode...$(RESET)"
-	@if [ ! -f .env ]; then \
-		echo "$(YELLOW)Creating .env file from .env.example...$(RESET)"; \
-		cp .env.example .env; \
-		echo "$(YELLOW)Please edit .env file with your configuration!$(RESET)"; \
-	fi
-	@docker-compose up -d
-	@echo "$(GREEN)✓ All services started!$(RESET)"
-	@echo "$(DIM)Run 'make logs' to view service logs$(RESET)"
-
-.PHONY: up-legacy
-up-legacy: ## Start all services using individual docker-compose files (legacy)
-	@echo "$(BOLD)$(GREEN)Starting all services in production mode (legacy)...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose up -d
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose up -d
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose up -d
-endif
-ifdef HAS_WALL
-	@echo "$(YELLOW)Note: Streamwall runs as desktop app$(RESET)"
-endif
-	@echo "$(GREEN)✓ All services started!$(RESET)"
+.PHONY: up
+up: ## Start all services
+	@echo "$(BOLD)$(GREEN)Starting services...$(RESET)"
+	@docker compose up -d
+	@echo "$(GREEN)✅ Services started!$(RESET)"
 
 .PHONY: down
-down: ## Stop all services using top-level docker-compose
-	@echo "$(BOLD)$(RED)Stopping all services...$(RESET)"
-	@docker-compose down
-	@echo "$(GREEN)✓ All services stopped!$(RESET)"
+down: ## Stop all services
+	@echo "$(BOLD)$(RED)Stopping services...$(RESET)"
+	@docker compose down
+	@echo "$(GREEN)✅ Services stopped!$(RESET)"
 
-.PHONY: down-legacy
-down-legacy: ## Stop all services using individual docker-compose files (legacy)
-	@echo "$(BOLD)$(RED)Stopping all services (legacy)...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose down
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose down
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose down
-endif
-	@echo "$(GREEN)✓ All services stopped!$(RESET)"
+.PHONY: restart
+restart: down up ## Restart all services
 
-.PHONY: restart r
-restart r: down up ## Restart all services
-
-##@ Monitoring
-
-.PHONY: status s
-status s: ## Show status of all services using top-level docker-compose
+.PHONY: status
+status: ## Show service status
 	@echo "$(BOLD)Service Status:$(RESET)"
-	@docker-compose ps
+	@docker compose ps
 
-.PHONY: status-legacy
-status-legacy: ## Show status of all services (legacy method)
-	@echo "$(BOLD)Service Status (legacy):$(RESET)"
-ifdef HAS_MONITOR
-	@echo -n "$(CYAN)livestream-link-monitor:$(RESET) "
-	@cd $(MONITOR_DIR) && docker-compose ps --quiet livestream-link-monitor > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
-endif
-ifdef HAS_UPDATER
-	@echo -n "$(CYAN)livesheet-updater:$(RESET) "
-	@cd $(UPDATER_DIR) && docker-compose ps --quiet livesheet-updater > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
-endif
-ifdef HAS_SOURCE
-	@echo -n "$(CYAN)streamsource:$(RESET) "
-	@cd $(SOURCE_DIR) && docker-compose ps --quiet web > /dev/null 2>&1 && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
-endif
-ifdef HAS_WALL
-	@echo -n "$(CYAN)streamwall:$(RESET) "
-	@pgrep -f "electron.*streamwall" > /dev/null && echo "$(GREEN)running$(RESET)" || echo "$(RED)stopped$(RESET)"
+.PHONY: logs
+logs: ## Show logs (use with SERVICE=name for specific service)
+ifdef SERVICE
+	@docker compose logs -f $(SERVICE)
+else
+	@docker compose logs -f
 endif
 
-.PHONY: logs l
-logs l: ## Show logs from all services using top-level docker-compose
-	@echo "$(BOLD)$(BLUE)Showing logs from all services...$(RESET)"
-	@echo "$(DIM)Press Ctrl+C to exit$(RESET)"
-	@docker-compose logs -f
-
-.PHONY: logs-legacy
-logs-legacy: ## Show logs from all services using individual docker-compose files (legacy)
-	@echo "$(BOLD)$(BLUE)Showing logs from all services (legacy)...$(RESET)"
-	@echo "$(DIM)Press Ctrl+C to exit$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose logs -f livestream-link-monitor &
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose logs -f livesheet-updater &
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose logs -f &
-endif
-	@wait
-
-.PHONY: logs-monitor
-logs-monitor: ## Show livestream-link-monitor logs
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose logs -f livestream-link-monitor
-endif
-
-.PHONY: logs-updater
-logs-updater: ## Show livesheet-updater logs
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose logs -f livesheet-updater
-endif
-
-.PHONY: logs-source
-logs-source: ## Show streamsource logs
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose logs -f
-endif
-
-##@ Testing
-
-.PHONY: test
-test: ## Run tests for all services
-	@echo "$(BOLD)$(BLUE)Running tests for all services...$(RESET)"
-ifdef HAS_MONITOR
-	@echo "$(YELLOW)Testing livestream-link-monitor...$(RESET)"
-	@cd $(MONITOR_DIR) && make test
-endif
-ifdef HAS_WALL
-	@echo "$(YELLOW)Testing streamwall...$(RESET)"
-	@cd $(WALL_DIR) && npm test
-endif
-ifdef HAS_SOURCE
-	@echo "$(YELLOW)Testing streamsource...$(RESET)"
-	@cd $(SOURCE_DIR) && bundle exec rspec
-endif
-	@echo "$(GREEN)✓ All tests complete!$(RESET)"
-
-.PHONY: test-integration
-test-integration: ## Run integration tests
-	@echo "$(BOLD)$(BLUE)Running integration tests...$(RESET)"
-	@npm run test:integration
-
-.PHONY: test-e2e
-test-e2e: ## Run end-to-end tests
-	@echo "$(BOLD)$(BLUE)Running end-to-end tests...$(RESET)"
-	@npm test -- tests/e2e/
-
-##@ Code Quality
-
-.PHONY: lint
-lint: ## Run linters for all services
-	@echo "$(BOLD)$(BLUE)Running linters...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && make lint
-endif
-ifdef HAS_WALL
-	@cd $(WALL_DIR) && npm run lint
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && bundle exec rubocop
-endif
-
-.PHONY: format
-format: ## Format code in all services
-	@echo "$(BOLD)$(BLUE)Formatting code...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && make format
-endif
-ifdef HAS_WALL
-	@cd $(WALL_DIR) && npm run format
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && bundle exec rubocop -A
-endif
+.PHONY: shell
+shell: ## Open shell in service (use with SERVICE=name, default: streamsource)
+	@docker compose exec $(or $(SERVICE),streamsource) bash || docker compose exec $(or $(SERVICE),streamsource) sh
 
 ##@ Maintenance
 
+.PHONY: validate
+validate: ## Check configuration
+	@if [ -f ./bin/streamwall-validate ]; then \
+		./bin/streamwall-validate; \
+	else \
+		echo "$(CYAN)Checking configuration...$(RESET)"; \
+		[ -f .env ] && echo "$(GREEN)✓ .env exists$(RESET)" || echo "$(RED)✗ .env missing$(RESET)"; \
+		docker info >/dev/null 2>&1 && echo "$(GREEN)✓ Docker running$(RESET)" || echo "$(RED)✗ Docker not running$(RESET)"; \
+	fi
+
+.PHONY: update
+update: ## Update submodules and dependencies
+	@echo "$(BOLD)$(BLUE)Updating...$(RESET)"
+	@git submodule update --init --recursive
+	@docker compose pull
+	@echo "$(GREEN)✅ Updated!$(RESET)"
+
 .PHONY: clean
-clean: ## Clean build artifacts and dependencies
-	@echo "$(BOLD)$(RED)Cleaning build artifacts...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && make clean
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && rm -rf node_modules
-endif
-ifdef HAS_WALL
-	@cd $(WALL_DIR) && npm run clean
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && bundle exec rails tmp:clear
-endif
-
-.PHONY: update-deps
-update-deps: ## Update dependencies for all services
-	@echo "$(BOLD)$(BLUE)Updating dependencies...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && npm update
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && npm update
-endif
-ifdef HAS_WALL
-	@cd $(WALL_DIR) && npm update
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && bundle update
-endif
-
-.PHONY: security
-security: ## Run security checks
-	@echo "$(BOLD)$(BLUE)Running security checks...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && npm audit
-endif
-ifdef HAS_WALL
-	@cd $(WALL_DIR) && npm audit
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && bundle audit
-endif
-
-##@ Docker
-
-.PHONY: build
-build: ## Build Docker images for all services using top-level docker-compose
-	@echo "$(BOLD)$(BLUE)Building Docker images...$(RESET)"
-	@docker-compose build
-
-.PHONY: build-legacy
-build-legacy: ## Build Docker images using individual docker-compose files (legacy)
-	@echo "$(BOLD)$(BLUE)Building Docker images (legacy)...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose build
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose build
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose build
-endif
-
-.PHONY: pull
-pull: ## Pull latest Docker images
-	@echo "$(BOLD)$(BLUE)Pulling Docker images...$(RESET)"
-ifdef HAS_MONITOR
-	@cd $(MONITOR_DIR) && docker-compose pull
-endif
-ifdef HAS_UPDATER
-	@cd $(UPDATER_DIR) && docker-compose pull
-endif
-ifdef HAS_SOURCE
-	@cd $(SOURCE_DIR) && docker-compose pull
-endif
-
-##@ Developer Tools
-
-.PHONY: preflight
-preflight: ## Run pre-flight checks with auto-fixes
-	@echo "$(BOLD)$(BLUE)Running pre-flight checks...$(RESET)"
-	@./scripts/preflight-check.sh
-
-.PHONY: seed-demo
-seed-demo: ## Load demo data into running services
-	@echo "$(BOLD)$(CYAN)Seeding demo data...$(RESET)"
-	@./scripts/seed-demo-data.sh
-
-.PHONY: clean-restart
-clean-restart: ## Clean shutdown and restart all services
-	@echo "$(BOLD)$(YELLOW)Performing clean restart...$(RESET)"
-	@docker compose down
-	@echo "$(YELLOW)Waiting for services to stop...$(RESET)"
-	@sleep 2
-	@docker compose up -d
-	@echo "$(GREEN)✓ Clean restart complete!$(RESET)"
-
-.PHONY: reset-db
-reset-db: ## Reset database (WARNING: deletes all data)
-	@echo "$(BOLD)$(RED)WARNING: This will delete all data!$(RESET)"
+clean: ## Clean up containers and volumes (WARNING: deletes data)
+	@echo "$(BOLD)$(RED)This will delete all data!$(RESET)"
 	@read -p "Are you sure? (y/N) " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		docker compose down -v; \
-		docker compose up -d postgres; \
-		sleep 5; \
-		docker compose up -d; \
-		echo "$(GREEN)✓ Database reset complete!$(RESET)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(RESET)"; \
+		echo "$(GREEN)✅ Cleaned!$(RESET)"; \
 	fi
 
-.PHONY: shell
-shell: ## Open shell in a service (use with SERVICE=name)
-ifndef SERVICE
-	@echo "$(YELLOW)Opening shell in streamsource (default)...$(RESET)"
-	@docker compose exec streamsource bash
-else
-	@echo "$(YELLOW)Opening shell in $(SERVICE)...$(RESET)"
-	@docker compose exec $(SERVICE) sh || docker compose exec $(SERVICE) bash
-endif
-
-##@ Troubleshooting
-
-.PHONY: doctor
-doctor: ## Diagnose common issues
-	@echo "$(BOLD)$(BLUE)Running diagnostics...$(RESET)"
+.PHONY: help
+help: ## Show this help
+	@echo "$(BOLD)Streamwall Commands$(RESET)"
 	@echo ""
-	@echo "$(CYAN)Checking service directories:$(RESET)"
-	@test -d $(MONITOR_DIR) && echo "✓ $(MONITOR_DIR) exists" || echo "✗ $(MONITOR_DIR) missing"
-	@test -d $(UPDATER_DIR) && echo "✓ $(UPDATER_DIR) exists" || echo "✗ $(UPDATER_DIR) missing"
-	@test -d $(SOURCE_DIR) && echo "✓ $(SOURCE_DIR) exists" || echo "✗ $(SOURCE_DIR) missing"
-	@test -d $(WALL_DIR) && echo "✓ $(WALL_DIR) exists" || echo "✗ $(WALL_DIR) missing"
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make $(CYAN)<command>$(RESET)\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(CYAN)%-15s$(RESET) %s\n", $$1, $$2 } /^##@/ { printf "\n$(BOLD)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(CYAN)Checking Docker:$(RESET)"
-	@command -v docker >/dev/null 2>&1 && echo "✓ Docker installed" || echo "✗ Docker not found"
-	@docker info >/dev/null 2>&1 && echo "✓ Docker daemon running" || echo "✗ Docker daemon not running"
-	@echo ""
-	@echo "$(CYAN)Checking Node.js:$(RESET)"
-	@command -v node >/dev/null 2>&1 && echo "✓ Node.js installed ($(shell node --version))" || echo "✗ Node.js not found"
-	@command -v npm >/dev/null 2>&1 && echo "✓ npm installed ($(shell npm --version))" || echo "✗ npm not found"
-	@echo ""
-ifdef HAS_SOURCE
-	@echo "$(CYAN)Checking Ruby:$(RESET)"
-	@command -v ruby >/dev/null 2>&1 && echo "✓ Ruby installed ($(shell ruby --version | cut -d' ' -f2))" || echo "✗ Ruby not found"
-	@command -v bundle >/dev/null 2>&1 && echo "✓ Bundler installed" || echo "✗ Bundler not found"
-endif
+	@echo "$(BOLD)Examples:$(RESET)"
+	@echo "  make              # First time? Start here"
+	@echo "  make demo         # Try with sample data"
+	@echo "  make logs         # View all logs"
+	@echo "  make logs SERVICE=streamsource  # View specific service"
 
-.PHONY: env-check
-env-check: ## Check environment variables
-	@echo "$(BOLD)$(BLUE)Checking environment configuration...$(RESET)"
-ifdef HAS_MONITOR
-	@echo "$(CYAN)livestream-link-monitor:$(RESET)"
-	@test -f $(MONITOR_DIR)/.env && echo "✓ .env file exists" || echo "✗ .env file missing"
-endif
-ifdef HAS_UPDATER
-	@echo "$(CYAN)livesheet-updater:$(RESET)"
-	@test -f $(UPDATER_DIR)/creds.json && echo "✓ creds.json exists" || echo "✗ creds.json missing"
-endif
-ifdef HAS_SOURCE
-	@echo "$(CYAN)streamsource:$(RESET)"
-	@test -f $(SOURCE_DIR)/.env && echo "✓ .env file exists" || echo "✗ .env file missing"
-endif
+##@ Internal Helpers (not shown in help)
 
-.PHONY: health
-health: ## Health check all services
-	@echo "$(BOLD)$(BLUE)Checking service health...$(RESET)"
-ifdef HAS_MONITOR
-	@echo -n "$(CYAN)livestream-link-monitor:$(RESET) "
-	@curl -s http://localhost:3000/health >/dev/null 2>&1 && echo "$(GREEN)healthy$(RESET)" || echo "$(RED)unhealthy$(RESET)"
-endif
-ifdef HAS_SOURCE
-	@echo -n "$(CYAN)streamsource:$(RESET) "
-	@curl -s http://localhost:3000/up >/dev/null 2>&1 && echo "$(GREEN)healthy$(RESET)" || echo "$(RED)unhealthy$(RESET)"
-endif
-
-##@ Submodules
-
-.PHONY: submodule-status
-submodule-status: ## Show status of all submodules
-	@echo "$(BOLD)$(BLUE)Submodule status:$(RESET)"
-	@git submodule status
-
-.PHONY: submodule-update
-submodule-update: ## Update all submodules to latest commit
-	@echo "$(BOLD)$(BLUE)Updating submodules...$(RESET)"
-	@git submodule update --remote --merge
-	@echo "$(GREEN)✓ Submodules updated!$(RESET)"
-
-.PHONY: submodule-fetch
-submodule-fetch: ## Fetch latest changes for all submodules
-	@echo "$(BOLD)$(BLUE)Fetching submodule changes...$(RESET)"
-	@git submodule foreach 'git fetch'
-
-##@ Shortcuts
-
-.PHONY: d u l r s
-# Shortcuts are defined with their full versions above
+# Create demo environment
+.PHONY: _create-demo-env
+_create-demo-env:
+	@echo "# Demo Mode Configuration" > .env.demo
+	@echo "DEMO_MODE=true" >> .env.demo
+	@echo "NODE_ENV=development" >> .env.demo
+	@echo "RAILS_ENV=development" >> .env.demo
+	@echo "" >> .env.demo
+	@echo "# Ports" >> .env.demo
+	@echo "DEMO_STREAMSOURCE_PORT=3100" >> .env.demo
+	@echo "POSTGRES_PORT=5432" >> .env.demo
+	@echo "REDIS_PORT=6379" >> .env.demo
+	@echo "" >> .env.demo
+	@echo "# Database" >> .env.demo
+	@echo "POSTGRES_USER=streamwall" >> .env.demo
+	@echo "POSTGRES_PASSWORD=demo_password" >> .env.demo
+	@echo "POSTGRES_DB=streamwall_demo" >> .env.demo
+	@echo "DATABASE_URL=postgresql://streamwall:demo_password@postgres:5432/streamwall_demo" >> .env.demo
+	@echo "" >> .env.demo
+	@echo "# Security (demo only)" >> .env.demo
+	@echo "SECRET_KEY_BASE=demo_secret_$$(date +%s)" >> .env.demo
+	@echo "JWT_SECRET=demo_jwt_$$(date +%s)" >> .env.demo
+	@echo "STREAMSOURCE_API_KEY=demo_api_$$(date +%s)" >> .env.demo
+	@echo "" >> .env.demo
+	@echo "# Services" >> .env.demo
+	@echo "REDIS_URL=redis://redis:6379/0" >> .env.demo
+	@echo "BACKEND_TYPE=streamsource" >> .env.demo
