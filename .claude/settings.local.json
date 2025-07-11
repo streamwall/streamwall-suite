@@ -91,7 +91,10 @@
       "Bash(make:*)",
       "Bash(rails runner:*)",
       "Bash(npm run test:coverage:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(COMPOSE_PROFILES=development docker compose config --services)",
+      "Bash(env)",
+      "Bash(rails routes:*)"
     ],
     "deny": []
   }
