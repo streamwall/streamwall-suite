@@ -218,6 +218,12 @@ git commit -m "Update streamsource submodule"
 
 ## Development Workflow
 
+### Project-Specific Practices
+
+#### Script and Command Preferences
+- Always prefer running project-specific scripts to perform tasks, such as Makefile commands, tasks defined in package.json, or rake tasks.
+- When running commands, consider if the command should run in the context of the host or the project or service containers. Prefer containers when running environment-sensitive commands, such as rails tasks.
+
 ### Service Dependencies
 1. **StreamSource** (start first - provides API)
 2. **Redis** (required for StreamSource WebSocket and caching)
