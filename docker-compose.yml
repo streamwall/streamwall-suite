@@ -1,277 +1,84 @@
-# Streamwall Ecosystem Docker Compose
-# This file orchestrates all services in the Streamwall ecosystem
-#
-# Quick Start:
-#   1. Run ./setup-wizard.sh for interactive setup
-#   2. Or copy .env.example to .env and run: docker compose up -d
-#
-# Service URLs:
-#   - StreamSource API: http://localhost:3000
-#   - PostgreSQL: localhost:5432
-#   - Redis: localhost:6379
+# Streamwall Suite - One-Click Setup
+# Just run: docker compose up
 
 services:
-  # PostgreSQL Database (for StreamSource)
+  # Database
   postgres:
     image: postgres:17-alpine
-    container_name: streamwall-postgres
-    restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-streamwall}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-streamwall_dev_password_change_in_production}
-      - POSTGRES_DB=${POSTGRES_DB:-streamwall_development}
+      POSTGRES_DB: streamwall
+      POSTGRES_USER: streamwall
+      POSTGRES_PASSWORD: streamwall
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streamwall} -d ${POSTGRES_DB:-streamwall_development}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U streamwall"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
-  # Redis (for StreamSource ActionCable and caching)
+  # Cache
   redis:
     image: redis:7-alpine
-    container_name: streamwall-redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
 
-  # StreamSource API (Rails backend)
+  # Main API
   streamsource:
     build: ./streamsource
-    container_name: streamsource-api
-    restart: unless-stopped
-    profiles: ["development"]
     ports:
-      - "${STREAMSOURCE_PORT:-3000}:3000"
+      - "3000:3000"
     environment:
-      - RAILS_ENV=${RAILS_ENV:-development}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-streamwall}:${POSTGRES_PASSWORD:-streamwall_dev_password_change_in_production}@postgres:5432/${POSTGRES_DB:-streamwall_development}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-development_secret_key_base_change_in_production_minimum_30_chars}
-      - JWT_SECRET=${JWT_SECRET:-development_jwt_secret_change_in_production_minimum_30_chars}
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-development_api_key_change_in_production_minimum_30_chars}
-      - RAILS_LOG_TO_STDOUT=true
-      - BUNDLE_WITHOUT=""
+      DATABASE_URL: postgresql://streamwall:streamwall@postgres:5432/streamwall
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY_BASE: development_secret_key_must_be_at_least_30_chars
+      JWT_SECRET: development_jwt_secret_also_30_chars_minimum
+      RAILS_LOG_TO_STDOUT: "true"
+    volumes:
+      - ./streamsource:/rails
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./streamsource:/rails:cached
-      - streamsource_bundle:/usr/local/bundle
-    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    command: ["./bin/rails", "server", "-b", "0.0.0.0"]
 
-  # Livestream Link Monitor - Discord/Twitch bot
-  livestream-monitor:
+  # Stream Monitor (Optional - needs Discord/Twitch tokens)
+  monitor:
     build: ./livestream-link-monitor
-    container_name: livestream-monitor
-    restart: unless-stopped
-    profiles: ["development"]
-    depends_on:
-      streamsource:
-        condition: service_healthy
-    volumes:
-      - ./livestream-link-monitor/logs:/app/logs
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - TZ=${TZ:-UTC}
-      - PORT=${LIVESTREAM_MONITOR_PORT:-3001}
-      # Discord/Twitch configuration (optional)
-      - DISCORD_TOKEN=${DISCORD_TOKEN:-}
-      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID:-}
-      - TWITCH_CHANNEL=${TWITCH_CHANNEL:-}
-      # StreamSource API integration
-      - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
-      - STREAMSOURCE_EMAIL=${STREAMSOURCE_EMAIL:-}
-      - STREAMSOURCE_PASSWORD=${STREAMSOURCE_PASSWORD:-}
-    ports:
-      - "${LIVESTREAM_MONITOR_PORT:-3001}:${LIVESTREAM_MONITOR_PORT:-3001}"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${LIVESTREAM_MONITOR_PORT:-3001}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      STREAMSOURCE_API_URL: http://streamsource:3000/api/v1
+      STREAMSOURCE_API_KEY: dev_monitor_key
+      # Add these to .env file:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_CHANNEL_IDS: ${DISCORD_CHANNEL_IDS:-}
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      TWITCH_CHANNELS: ${TWITCH_CHANNELS:-}
+    volumes:
+      - ./livestream-link-monitor:/app
+    depends_on:
+      - streamsource
 
-  # Livesheet Updater - Stream status checker
-  livesheet-updater:
+  # Status Updater
+  updater:
     build: ./livesheet-updater
-    container_name: livesheet-updater
-    restart: unless-stopped
-    profiles: ["development"]
-    depends_on:
-      streamsource:
-        condition: service_healthy
+    environment:
+      STREAMSOURCE_API_URL: http://streamsource:3000/api/v1
+      STREAMSOURCE_API_KEY: dev_updater_key
+      CHECK_INTERVAL_SECONDS: 60
     volumes:
-      - ./livesheet-updater/logs:/app/logs
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - TZ=${TZ:-UTC}
-      # StreamSource API configuration
-      - STREAMSOURCE_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
-      - STREAMSOURCE_EMAIL=${STREAMSOURCE_EMAIL:-}
-      - STREAMSOURCE_PASSWORD=${STREAMSOURCE_PASSWORD:-}
-    healthcheck:
-      test: ["CMD", "node", "--version"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Optional: Streamwall Desktop App (Electron)
-  # To include this service, run: docker compose --profile desktop up
-  streamwall:
-    build: ./streamwall
-    container_name: streamwall-app
-    profiles: ["desktop", "full"]
-    restart: unless-stopped
+      - ./livesheet-updater:/app
     depends_on:
-      streamsource:
-        condition: service_healthy
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - STREAM_API_URL=${STREAMSOURCE_API_URL:-http://streamsource:3000/api/v1}
-      - STREAMWALL_WEB_PORT=${STREAMWALL_WEB_PORT:-8080}
-      - STREAMWALL_CONFIG_FILE=${STREAMWALL_CONFIG_FILE:-./config.development.toml}
-    ports:
-      - "${STREAMWALL_WEB_PORT:-8080}:8080"
-    volumes:
-      - ./streamwall:/app:cached
-      - /app/node_modules
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - streamsource
 
-  # Demo Mode Services
-  # These extend the base services with demo-specific configurations
-  streamsource-demo:
-    extends: streamsource
-    profiles: ["demo"]
-    container_name: streamsource-api-demo
-    ports:
-      - "${DEMO_STREAMSOURCE_PORT:-3100}:3000"
-    environment:
-      - RAILS_ENV=development
-      - NODE_ENV=development
-      - DEMO_MODE=true
-      - DISABLE_AUTH=true
-      - AUTO_SEED=true
-      - DATABASE_URL=postgresql://streamwall:demo_password@postgres:5432/streamwall_demo
-      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-demo_secret_key_not_for_production}
-      - JWT_SECRET=${JWT_SECRET:-demo_jwt_secret_not_for_production}
-      - ENABLE_DEMO_STREAMS=true
-
-  livestream-monitor-demo:
-    build: ./livestream-link-monitor
-    profiles: ["demo"]
-    container_name: livestream-monitor-demo
-    restart: unless-stopped
-    ports:
-      - "${DEMO_MONITOR_PORT:-3101}:3001"
-    depends_on:
-      streamsource-demo:
-        condition: service_healthy
-    volumes:
-      - ./livestream-link-monitor/creds.json:/app/creds.json:ro
-      - ./livestream-link-monitor/logs:/app/logs
-    environment:
-      - NODE_ENV=development
-      - DEMO_MODE=true
-      - MOCK_DISCORD=true
-      - MOCK_TWITCH=true
-      - TZ=${TZ:-UTC}
-      - PORT=${LIVESTREAM_MONITOR_PORT:-3001}
-      - DISCORD_TOKEN=demo_discord_token
-      - DISCORD_CHANNEL_ID=123456789012345678
-      - TWITCH_CHANNEL=demo_channel
-      - BACKEND_TYPE=streamsource
-      - BACKEND_MODE=${BACKEND_MODE:-single}
-      - BACKEND_PRIMARY=${BACKEND_PRIMARY:-streamSource}
-      - BACKEND_STREAMSOURCE_ENABLED=${BACKEND_STREAMSOURCE_ENABLED:-true}
-      - STREAMSOURCE_API_URL=http://streamsource-demo:3000/api/v1
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
-      - AUTO_GENERATE_STREAMS=true
-      - STREAM_GENERATION_INTERVAL=30000
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${LIVESTREAM_MONITOR_PORT:-3001}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  livesheet-updater-demo:
-    build: ./livesheet-updater
-    profiles: ["demo"]
-    container_name: livesheet-updater-demo
-    restart: unless-stopped
-    depends_on:
-      streamsource-demo:
-        condition: service_healthy
-    volumes:
-      - ./livesheet-updater/creds.json:/app/creds.json:ro
-      - ./livesheet-updater/logs:/app/logs
-    environment:
-      - NODE_ENV=development
-      - DEMO_MODE=true
-      - CHECK_INTERVAL=10000
-      - TZ=${TZ:-UTC}
-      - STREAMSOURCE_API_URL=http://streamsource-demo:3000/api/v1
-      - STREAMSOURCE_API_KEY=${STREAMSOURCE_API_KEY:-demo_api_key}
-    healthcheck:
-      test: ["CMD", "node", "--version"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# Networks
-networks:
-  default:
-    name: streamwall-network
-    driver: bridge
-
-# Volumes
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  streamsource_bundle:
-    driver: local
+
+networks:
+  default:
+    name: streamwall
