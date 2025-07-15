@@ -34,7 +34,7 @@ This directory contains comprehensive integration tests for the Streamwall ecosy
    - Real-time update simulation
 
 5. **monitor-to-streamsource.test.js** - Livestream Monitor ↔ StreamSource integration
-   - Dual-write mode (Sheets + API)
+   - API integration
    - Duplicate handling
    - Batch processing
    - Platform-specific handling

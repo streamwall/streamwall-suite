@@ -143,7 +143,7 @@ describe('Data Consistency Across Services', () => {
 describe('Service Resilience', () => {
   it('should handle service failures gracefully', async () => {
     // 1. Simulate StreamSource API downtime
-    // 2. Verify livestream-link-monitor falls back to Sheets-only mode
+    // 2. Verify livestream-link-monitor handles API downtime gracefully
     // 3. Verify Streamwall can still function with cached data
     // 4. Test recovery when services come back online
   });
@@ -181,6 +181,7 @@ describe('Security Integration', () => {
 - **Test**: Automatic archiving after threshold
 - **Test**: Batch update performance
 - **Test**: Error handling for invalid data
+
 
 ## Repository Management
 
@@ -229,7 +230,7 @@ git commit -m "Update streamsource submodule"
 2. **Redis** (required for StreamSource WebSocket and caching)
 3. **PostgreSQL** (required for StreamSource data storage)
 4. **livestream-link-monitor** (optional - for automated discovery)
-5. **livesheet-updater** (optional - for Sheets monitoring)
+5. **livesheet-updater** (optional - for status monitoring)
 6. **Streamwall** (depends on stream data from other services)
 
 ### Development Environment Setup

@@ -246,7 +246,6 @@ services:
     environment:
       - NODE_ENV=development
       - DEMO_MODE=true
-      - MOCK_GOOGLE_SHEETS=true
       - CHECK_INTERVAL=10000
       - TZ=${TZ:-UTC}
       - STREAMSOURCE_API_URL=http://streamsource-demo:3000/api/v1
