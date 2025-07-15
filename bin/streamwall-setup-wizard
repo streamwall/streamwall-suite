@@ -34,8 +34,9 @@ PLATFORM=$(detect_platform)
 
 # Configuration
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-ENV_FILE="$SCRIPT_DIR/.env"
-ENV_EXAMPLE="$SCRIPT_DIR/.env.example"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." &> /dev/null && pwd )"
+ENV_FILE="$PROJECT_ROOT/.env"
+ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
 
 # Cross-platform sed function
 sed_inplace() {
@@ -121,7 +122,7 @@ check_prerequisites() {
 init_submodules() {
     print_header "Initializing Git Submodules"
     
-    if [ -f "$SCRIPT_DIR/.gitmodules" ]; then
+    if [ -f "$PROJECT_ROOT/.gitmodules" ]; then
         print_color "$YELLOW" "Initializing submodules..."
         git submodule update --init --recursive
         print_color "$GREEN" "✓ Submodules initialized"
@@ -234,16 +235,6 @@ setup_environment() {
             sed_inplace "$ENV_FILE" "s|DISCORD_CHANNEL_ID=.*|DISCORD_CHANNEL_ID=$DISCORD_CHANNEL_ID|"
         fi
         
-        echo
-        print_color "$BLUE" "Google Sheets Configuration:"
-        prompt_with_default "Google Sheet ID (leave empty to skip)" "" GOOGLE_SHEET_ID
-        
-        if [ -n "$GOOGLE_SHEET_ID" ]; then
-            sed_inplace "$ENV_FILE" "s|GOOGLE_SHEET_ID=.*|GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID|"
-            print_color "$YELLOW" "Note: You'll need to place your Google credentials JSON file at:"
-            print_color "$YELLOW" "  livestream-link-monitor/creds.json"
-            print_color "$YELLOW" "  livesheet-updater/creds.json"
-        fi
     fi
     
     # Clean up backup files
@@ -263,8 +254,8 @@ create_directories() {
     )
     
     for dir in "${dirs[@]}"; do
-        if [ ! -d "$SCRIPT_DIR/$dir" ]; then
-            mkdir -p "$SCRIPT_DIR/$dir"
+        if [ ! -d "$PROJECT_ROOT/$dir" ]; then
+            mkdir -p "$PROJECT_ROOT/$dir"
             print_color "$GREEN" "✓ Created $dir/"
         else
             print_color "$BLUE" "  $dir/ already exists"
@@ -276,8 +267,8 @@ create_directories() {
 setup_streamsource() {
     print_header "Setting up StreamSource"
     
-    if [ -d "$SCRIPT_DIR/streamsource" ]; then
-        cd "$SCRIPT_DIR/streamsource"
+    if [ -d "$PROJECT_ROOT/streamsource" ]; then
+        cd "$PROJECT_ROOT/streamsource"
         
         # Create .env file for StreamSource if needed
         if [ ! -f ".env" ] && [ -f ".env.example" ]; then
@@ -285,14 +276,14 @@ setup_streamsource() {
             # Copy relevant values from root .env
             if [ -f "$ENV_FILE" ]; then
                 source "$ENV_FILE"
-                sed_inplace "s|SECRET_KEY_BASE=.*|SECRET_KEY_BASE=$SECRET_KEY_BASE|" .env
-                sed_inplace "s|JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" .env
-                sed_inplace "s|DATABASE_URL=.*|DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}|" .env
+                sed_inplace .env "s|SECRET_KEY_BASE=.*|SECRET_KEY_BASE=$SECRET_KEY_BASE|"
+                sed_inplace .env "s|JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|"
+                sed_inplace .env "s|DATABASE_URL=.*|DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}|"
             fi
             print_color "$GREEN" "✓ Created StreamSource .env file"
         fi
         
-        cd "$SCRIPT_DIR"
+        cd "$PROJECT_ROOT"
     fi
 }
 
@@ -301,30 +292,35 @@ setup_services() {
     print_header "Setting up Services"
     
     # Setup livestream-link-monitor
-    if [ -d "$SCRIPT_DIR/livestream-link-monitor" ]; then
-        cd "$SCRIPT_DIR/livestream-link-monitor"
+    if [ -d "$PROJECT_ROOT/livestream-link-monitor" ]; then
+        cd "$PROJECT_ROOT/livestream-link-monitor"
         if [ ! -f ".env" ] && [ -f ".env.example" ]; then
             cp .env.example .env
             # Copy API key from root config
             if [ -f "$ENV_FILE" ]; then
                 source "$ENV_FILE"
-                sed_inplace "s|STREAMSOURCE_API_KEY=.*|STREAMSOURCE_API_KEY=$STREAMSOURCE_API_KEY|" .env
-                sed_inplace "s|STREAMSOURCE_API_URL=.*|STREAMSOURCE_API_URL=http://streamsource:3000/api/v1|" .env
+                sed_inplace .env "s|STREAMSOURCE_API_KEY=.*|STREAMSOURCE_API_KEY=$STREAMSOURCE_API_KEY|"
+                sed_inplace .env "s|STREAMSOURCE_API_URL=.*|STREAMSOURCE_API_URL=http://streamsource:3000/api/v1|"
             fi
             print_color "$GREEN" "✓ Created livestream-link-monitor .env file"
         fi
-        cd "$SCRIPT_DIR"
+        cd "$PROJECT_ROOT"
     fi
     
     # Setup livesheet-updater
-    if [ -d "$SCRIPT_DIR/livesheet-updater" ]; then
-        cd "$SCRIPT_DIR/livesheet-updater"
-        # This service uses creds.json, create a placeholder if needed
-        if [ ! -f "creds.json" ]; then
-            echo '{"note": "Place your Google service account credentials here"}' > creds.json
-            print_color "$YELLOW" "  Created placeholder creds.json for livesheet-updater"
+    if [ -d "$PROJECT_ROOT/livesheet-updater" ]; then
+        cd "$PROJECT_ROOT/livesheet-updater"
+        if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            cp .env.example .env
+            # Copy API key from root config
+            if [ -f "$ENV_FILE" ]; then
+                source "$ENV_FILE"
+                sed_inplace .env "s|STREAMSOURCE_API_KEY=.*|STREAMSOURCE_API_KEY=$STREAMSOURCE_API_KEY|"
+                sed_inplace .env "s|STREAMSOURCE_API_URL=.*|STREAMSOURCE_API_URL=http://streamsource:3000/api/v1|"
+            fi
+            print_color "$GREEN" "✓ Created livesheet-updater .env file"
         fi
-        cd "$SCRIPT_DIR"
+        cd "$PROJECT_ROOT"
     fi
 }
 
@@ -410,7 +406,7 @@ create_admin_account() {
         print_color "$YELLOW" "You can change your password after logging in."
         
         # Save to a secure file
-        local creds_file="$SCRIPT_DIR/admin-credentials.txt"
+        local creds_file="$PROJECT_ROOT/admin-credentials.txt"
         echo "StreamSource Admin Credentials" > "$creds_file"
         echo "Created: $(date)" >> "$creds_file"
         echo "Email: $admin_email" >> "$creds_file"
@@ -496,9 +492,9 @@ configure_discord_bot() {
     
     
     # Also update livestream-link-monitor .env if it exists
-    if [ -f "$SCRIPT_DIR/livestream-link-monitor/.env" ]; then
-        sed_inplace "$SCRIPT_DIR/livestream-link-monitor/.env" "s|DISCORD_TOKEN=.*|DISCORD_TOKEN=$discord_token|"
-        sed_inplace "$SCRIPT_DIR/livestream-link-monitor/.env" "s|DISCORD_CHANNEL_ID=.*|DISCORD_CHANNEL_ID=$channel_id|"
+    if [ -f "$PROJECT_ROOT/livestream-link-monitor/.env" ]; then
+        sed_inplace "$PROJECT_ROOT/livestream-link-monitor/.env" "s|DISCORD_TOKEN=.*|DISCORD_TOKEN=$discord_token|"
+        sed_inplace "$PROJECT_ROOT/livestream-link-monitor/.env" "s|DISCORD_CHANNEL_ID=.*|DISCORD_CHANNEL_ID=$channel_id|"
     fi
     
     print_color "$GREEN" "✓ Discord bot configured successfully!"
@@ -540,7 +536,7 @@ show_final_instructions() {
         fi
     fi
     
-    if [ -f "$SCRIPT_DIR/admin-credentials.txt" ]; then
+    if [ -f "$PROJECT_ROOT/admin-credentials.txt" ]; then
         echo
         print_color "$YELLOW" "Admin credentials have been saved to: admin-credentials.txt"
         print_color "$YELLOW" "Please store these securely and delete the file after saving elsewhere."
@@ -641,7 +637,7 @@ configure_specific_service() {
     print_color "$BLUE" "Select service to configure:"
     echo "1) StreamSource (API Backend)"
     echo "2) Livestream Link Monitor (Discord/Twitch Bot)"
-    echo "3) Livesheet Updater (Google Sheets Monitor)"
+    echo "3) Livesheet Updater (Stream Status Monitor)"
     echo "4) Streamwall (Desktop App)"
     echo "5) Back to main menu"
     echo
@@ -666,28 +662,26 @@ add_integration() {
     print_color "$BLUE" "Select integration to configure:"
     echo "1) Discord Bot"
     echo "2) Twitch Chat Monitor"
-    echo "3) Google Sheets (Legacy)"
-    echo "4) Admin Account"
-    echo "5) Back to main menu"
+    echo "3) Admin Account"
+    echo "4) Back to main menu"
     echo
     
-    read -r -p "Select integration [1-5]: " integration_choice
+    read -r -p "Select integration [1-4]: " integration_choice
     echo
     
     case $integration_choice in
         1) configure_discord_bot; show_main_menu ;;
         2) configure_twitch_integration; show_main_menu ;;
-        3) configure_google_sheets; show_main_menu ;;
-        4) create_admin_account; show_main_menu ;;
-        5) show_main_menu ;;
+        3) create_admin_account; show_main_menu ;;
+        4) show_main_menu ;;
         *) print_color "$RED" "Invalid option."; add_integration ;;
     esac
 }
 
 # Function to validate configuration only
 validate_only() {
-    if [ -f "$SCRIPT_DIR/validate-config.sh" ]; then
-        "$SCRIPT_DIR/validate-config.sh"
+    if [ -f "$PROJECT_ROOT/bin/validate-config.sh" ]; then
+        "$PROJECT_ROOT/bin/validate-config.sh"
     else
         print_color "$RED" "Validation script not found!"
     fi
@@ -700,7 +694,7 @@ validate_only() {
 configure_streamsource_only() {
     print_header "Configure StreamSource"
     
-    if [ ! -d "$SCRIPT_DIR/streamsource" ]; then
+    if [ ! -d "$PROJECT_ROOT/streamsource" ]; then
         print_color "$RED" "StreamSource not found. Please run 'git submodule update --init --recursive'"
         return
     fi
@@ -726,7 +720,7 @@ configure_streamsource_only() {
 configure_livestream_monitor_only() {
     print_header "Configure Livestream Link Monitor"
     
-    if [ ! -d "$SCRIPT_DIR/livestream-link-monitor" ]; then
+    if [ ! -d "$PROJECT_ROOT/livestream-link-monitor" ]; then
         print_color "$RED" "Livestream Link Monitor not found. Please run 'git submodule update --init --recursive'"
         return
     fi
@@ -738,7 +732,7 @@ configure_livestream_monitor_only() {
         echo "STREAMSOURCE_API_KEY=$STREAMSOURCE_API_KEY" > "$ENV_FILE"
     fi
     
-    cd "$SCRIPT_DIR/livestream-link-monitor"
+    cd "$PROJECT_ROOT/livestream-link-monitor"
     if [ ! -f ".env" ] && [ -f ".env.example" ]; then
         cp .env.example .env
     fi
@@ -752,7 +746,7 @@ configure_livestream_monitor_only() {
         configure_twitch_integration
     fi
     
-    cd "$SCRIPT_DIR"
+    cd "$PROJECT_ROOT"
     
     read -r -p "Start/restart Livestream Monitor? (Y/n): " start_service
     if [[ ! "$start_service" =~ ^[Nn]$ ]]; then
@@ -766,10 +760,20 @@ configure_livestream_monitor_only() {
 configure_livesheet_checker_only() {
     print_header "Configure Livesheet Updater"
     
-    print_color "$YELLOW" "Note: Google Sheets integration is legacy. Consider using StreamSource API instead."
+    print_color "$YELLOW" "Livesheet Updater monitors stream status and archives offline streams."
     echo
     
-    configure_google_sheets
+    if [ ! -d "$PROJECT_ROOT/livesheet-updater" ]; then
+        print_color "$RED" "Livesheet Updater not found. Please run 'git submodule update --init --recursive'"
+        return
+    fi
+    
+    cd "$PROJECT_ROOT/livesheet-updater"
+    if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+        cp .env.example .env
+        print_color "$GREEN" "✓ Created livesheet-updater .env file"
+    fi
+    cd "$PROJECT_ROOT"
     
     read -r -p "Start/restart Livesheet Updater? (Y/n): " start_service
     if [[ ! "$start_service" =~ ^[Nn]$ ]]; then
@@ -832,8 +836,8 @@ configure_twitch_integration() {
         fi
         
         # Also update service config if exists
-        if [ -f "$SCRIPT_DIR/livestream-link-monitor/.env" ]; then
-            sed_inplace "$SCRIPT_DIR/livestream-link-monitor/.env" "s|TWITCH_CHANNEL=.*|TWITCH_CHANNEL=$twitch_channel|"
+        if [ -f "$PROJECT_ROOT/livestream-link-monitor/.env" ]; then
+            sed_inplace "$PROJECT_ROOT/livestream-link-monitor/.env" "s|TWITCH_CHANNEL=.*|TWITCH_CHANNEL=$twitch_channel|"
         fi
         
         print_color "$GREEN" "✓ Twitch integration configured for channel: $twitch_channel"
@@ -846,41 +850,6 @@ configure_twitch_integration() {
     fi
 }
 
-configure_google_sheets() {
-    print_header "Google Sheets Configuration (Legacy)"
-    
-    print_color "$YELLOW" "Google Sheets requires:"
-    echo "  1. A Google Cloud service account"
-    echo "  2. The service account credentials JSON file"
-    echo "  3. The Google Sheet ID"
-    echo
-    
-    read -r -p "Enter Google Sheet ID: " sheet_id
-    
-    if [ -n "$sheet_id" ]; then
-        # Update configuration
-        if [ -f "$ENV_FILE" ]; then
-            if grep -q "GOOGLE_SHEET_ID=" "$ENV_FILE"; then
-                sed_inplace "$ENV_FILE" "s|GOOGLE_SHEET_ID=.*|GOOGLE_SHEET_ID=$sheet_id|"
-            else
-                echo "GOOGLE_SHEET_ID=$sheet_id" >> "$ENV_FILE"
-            fi
-            
-        fi
-        
-        print_color "$YELLOW" "Please place your Google credentials JSON at:"
-        print_color "$YELLOW" "  • livestream-link-monitor/creds.json"
-        print_color "$YELLOW" "  • livesheet-updater/creds.json"
-        echo
-        
-    read -r -p "Have you placed the credentials files? (y/N): " creds_placed
-        if [[ "$creds_placed" =~ ^[Yy]$ ]]; then
-            print_color "$GREEN" "✓ Google Sheets integration configured"
-        else
-            print_color "$YELLOW" "Remember to add credentials before starting services"
-        fi
-    fi
-}
 
 # Main setup flow
 main() {
@@ -889,13 +858,13 @@ main() {
     echo
     
     # Check if this is first run or reconfiguration
-    if [ -f "$ENV_FILE" ] && [ -f "$SCRIPT_DIR/.setup-complete" ]; then
+    if [ -f "$ENV_FILE" ] && [ -f "$PROJECT_ROOT/.setup-complete" ]; then
         show_main_menu
     else
         print_color "$YELLOW" "No previous setup detected. Running full setup..."
         echo
         full_setup
-        touch "$SCRIPT_DIR/.setup-complete"
+        touch "$PROJECT_ROOT/.setup-complete"
     fi
 }
 
@@ -912,8 +881,8 @@ parse_args() {
                 exit 0
                 ;;
             --validate)
-                if [ -f "$SCRIPT_DIR/validate-config.sh" ]; then
-                    "$SCRIPT_DIR/validate-config.sh"
+                if [ -f "$PROJECT_ROOT/bin/validate-config.sh" ]; then
+                    "$PROJECT_ROOT/bin/validate-config.sh"
                 else
                     print_color "$RED" "Validation script not found!"
                     exit 1
@@ -935,7 +904,6 @@ parse_args() {
                 case $1 in
                     discord) configure_discord_bot; exit 0 ;;
                     twitch) configure_twitch_integration; exit 0 ;;
-                    google-sheets) configure_google_sheets; exit 0 ;;
                     admin) create_admin_account; exit 0 ;;
                     *) print_color "$RED" "Unknown integration: $1"; exit 1 ;;
                 esac
@@ -968,7 +936,7 @@ show_help() {
     echo "                          streamsource, livestream-monitor,"
     echo "                          livesheet-updater, streamwall"
     echo "  --integration TYPE      Configure specific integration:"
-    echo "                          discord, twitch, google-sheets, admin"
+    echo "                          discord, twitch, admin"
     echo "  --help, -h              Show this help message"
     echo
     echo "Examples:"

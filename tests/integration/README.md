@@ -10,7 +10,6 @@ This directory contains comprehensive integration tests for the Streamwall ecosy
    - Discord message processing
    - Platform detection (Twitch, YouTube, TikTok, Kick, Facebook)
    - Location parsing
-   - Google Sheets integration (mocked)
    - Error handling
 
 2. **end-to-end.test.js** - Tests complete stream flow from discovery to display

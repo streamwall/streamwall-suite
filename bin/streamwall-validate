@@ -167,8 +167,6 @@ main() {
     # Twitch configuration
     check_optional "TWITCH_CHANNEL" "$TWITCH_CHANNEL" "Twitch channel to monitor"
     
-    # Google Sheets configuration
-    check_optional "GOOGLE_SHEET_ID" "$GOOGLE_SHEET_ID" "Google Sheet ID"
     
     echo
     print_color "$BLUE" "Checking Service URLs..."
@@ -193,11 +191,6 @@ main() {
     print_color "$BLUE" "Checking Required Files..."
     echo
     
-    # Check for credential files
-    if [ -n "$GOOGLE_SHEET_ID" ]; then
-        check_file "$SCRIPT_DIR/livestream-link-monitor/creds.json" "Google credentials for livestream-monitor" false
-        check_file "$SCRIPT_DIR/livesheet-updater/creds.json" "Google credentials for livesheet-updater" false
-    fi
     
     # Check submodules
     if [ ! -d "$SCRIPT_DIR/streamsource/.git" ]; then

@@ -13,7 +13,6 @@
       "Bash(rm:*)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(ls:*)",
       "Bash(chmod:*)",
       "Bash(gh repo create:*)",
       "Bash(mv:*)",
@@ -88,13 +87,15 @@
       "Bash(rails routes)",
       "Bash(bundle install:*)",
       "Bash(COMPOSE_PROFILES=\"demo\" docker compose down)",
-      "Bash(make:*)",
       "Bash(rails runner:*)",
       "Bash(npm run test:coverage:*)",
       "Bash(tree:*)",
       "Bash(COMPOSE_PROFILES=development docker compose config --services)",
       "Bash(env)",
-      "Bash(rails routes:*)"
+      "Bash(rails routes:*)",
+      "Bash(COMPOSE_PROFILES=development docker compose up -d postgres redis streamsource)",
+      "Bash(COMPOSE_PROFILES=development docker compose up -d streamsource)",
+      "Bash(COMPOSE_PROFILES=development docker compose up -d)"
     ],
     "deny": []
   }

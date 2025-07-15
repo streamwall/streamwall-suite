@@ -125,7 +125,7 @@ export -f reconfigure_all configure_specific_service add_integration
 export -f validate_only configure_streamsource_only
 export -f configure_livestream_monitor_only configure_livesheet_checker_only
 export -f configure_streamwall_only configure_twitch_integration
-export -f configure_google_sheets parse_args show_help
+export -f parse_args show_help
 EOF
     
     # Source the file

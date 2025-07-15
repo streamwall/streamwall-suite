@@ -1,6 +1,6 @@
 /**
  * Integration test for stream discovery pipeline
- * Tests: Discord message → livestream-link-monitor → Google Sheets/StreamSource
+ * Tests: Discord message → livestream-link-monitor → StreamSource
  */
 
 const axios = require('axios');
@@ -181,7 +181,6 @@ describe('Stream Discovery Pipeline', () => {
     });
   });
 
-  // Skip Google Sheets tests since we're deprecating it
 
   describe('Error Handling', () => {
     test('should handle invalid Discord webhook data gracefully', async () => {
