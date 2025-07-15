@@ -19,6 +19,12 @@ docker compose up
 - **Stream Monitor** (works without Discord/Twitch tokens)
 - **Status Updater** (automatic stream checking)
 
+## Connecting External Apps
+
+For apps running outside Docker (like Streamwall desktop):
+- API URL: `http://localhost:3000/api/v1`
+- No hosts file changes needed!
+
 ## Optional: Enable Discord/Twitch
 
 Want to monitor Discord or Twitch for streams?

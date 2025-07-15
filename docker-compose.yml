@@ -1,5 +1,8 @@
 # Streamwall Suite - One-Click Setup
 # Just run: docker compose up
+#
+# API Access: http://localhost:3000
+# For external apps (like Streamwall desktop), use: http://localhost:3000/api/v1
 
 services:
   # Database
@@ -50,6 +53,7 @@ services:
   monitor:
     build: ./livestream-link-monitor
     environment:
+      # Internal Docker network - services talk to each other by name
       STREAMSOURCE_API_URL: http://streamsource:3000/api/v1
       STREAMSOURCE_API_KEY: dev_monitor_key
       # Add these to .env file:
@@ -68,6 +72,7 @@ services:
   updater:
     build: ./livesheet-updater
     environment:
+      # Internal Docker network - services talk to each other by name
       STREAMSOURCE_API_URL: http://streamsource:3000/api/v1
       STREAMSOURCE_API_KEY: dev_updater_key
       CHECK_INTERVAL_SECONDS: 60
